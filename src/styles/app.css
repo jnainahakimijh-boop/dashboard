@@ -1,0 +1,326 @@
+@import 'tailwindcss';
+
+/* ================================================================
+   DESIGN TOKENS — Digital Performance
+   Dark is the flagship theme; light is fully supported.
+   All colours flow from these variables — no scattered hex codes.
+   ================================================================ */
+
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --bg-app: #141414;
+  --bg-side: #161616;
+  --bg-card: #1c1c1c;
+  --bg-card2: #202020;
+  --bg-inset: #181818;
+  --bg-hover: rgba(255, 255, 255, 0.04);
+  --bg-active: rgba(255, 255, 255, 0.07);
+
+  /* Borders */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  /* Text */
+  --text-1: #f4f4f1;
+  --text-2: rgba(255, 255, 255, 0.62);
+  --text-3: rgba(255, 255, 255, 0.4);
+
+  /* Accent — used sparingly: selection, focus, primary interaction */
+  --accent: #e6ff55;
+  --accent-ink: #131503; /* text placed on accent */
+  --accent-soft: rgba(230, 255, 85, 0.09);
+  --accent-border: rgba(230, 255, 85, 0.28);
+  --accent-text: #dcf65a; /* accent used as text on dark surfaces */
+
+  /* Semantic status */
+  --pos: #4fd68c;
+  --pos-soft: rgba(79, 214, 140, 0.1);
+  --neg: #ff7a76;
+  --neg-soft: rgba(255, 122, 118, 0.1);
+  --warn: #f2b34c;
+  --warn-soft: rgba(242, 179, 76, 0.11);
+  --info: #7da9ff;
+  --info-soft: rgba(125, 169, 255, 0.11);
+  --neutral: rgba(255, 255, 255, 0.45);
+
+  /* Chart palette — restrained, professional. Series 1 is the accent. */
+  --ch-1: #e6ff55;
+  --ch-2: #7da9ff;
+  --ch-3: #58d6c5;
+  --ch-4: #c79bff;
+  --ch-5: #f5b95c;
+  --ch-6: #f58fa9;
+  --ch-compare: rgba(255, 255, 255, 0.34);
+  --ch-grid: rgba(255, 255, 255, 0.06);
+  --ch-axis: rgba(255, 255, 255, 0.38);
+
+  /* Effects */
+  --shadow-pop: 0 12px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
+  --ring: 0 0 0 2px var(--bg-app), 0 0 0 4px var(--accent);
+
+  /* Density (overridden by [data-density='compact']) */
+  --pad-card: 18px;
+  --gap-grid: 14px;
+  --row-h: 44px;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg-app: #f4f4f2;
+  --bg-side: #ececea;
+  --bg-card: #ffffff;
+  --bg-card2: #f7f7f5;
+  --bg-inset: #f0f0ee;
+  --bg-hover: rgba(20, 20, 20, 0.04);
+  --bg-active: rgba(20, 20, 20, 0.07);
+
+  --border: rgba(20, 20, 20, 0.1);
+  --border-strong: rgba(20, 20, 20, 0.2);
+
+  --text-1: #171717;
+  --text-2: rgba(23, 23, 23, 0.64);
+  --text-3: rgba(23, 23, 23, 0.42);
+
+  --accent: #dbf23e;
+  --accent-ink: #1c2003;
+  --accent-soft: rgba(163, 189, 12, 0.13);
+  --accent-border: rgba(140, 163, 8, 0.4);
+  --accent-text: #6a7d05;
+
+  --pos: #158a52;
+  --pos-soft: rgba(21, 138, 82, 0.1);
+  --neg: #d13f3a;
+  --neg-soft: rgba(209, 63, 58, 0.09);
+  --warn: #b0700e;
+  --warn-soft: rgba(176, 112, 14, 0.11);
+  --info: #2e63cf;
+  --info-soft: rgba(46, 99, 207, 0.09);
+  --neutral: rgba(23, 23, 23, 0.45);
+
+  --ch-1: #94ad00;
+  --ch-2: #3b6fe0;
+  --ch-3: #17967f;
+  --ch-4: #7a5ae0;
+  --ch-5: #d98716;
+  --ch-6: #d45c80;
+  --ch-compare: rgba(23, 23, 23, 0.35);
+  --ch-grid: rgba(23, 23, 23, 0.07);
+  --ch-axis: rgba(23, 23, 23, 0.45);
+
+  --shadow-pop: 0 12px 40px rgba(20, 20, 20, 0.14), 0 2px 8px rgba(20, 20, 20, 0.08);
+  --ring: 0 0 0 2px var(--bg-app), 0 0 0 4px #8ca308;
+}
+
+:root[data-density='compact'] {
+  --pad-card: 13px;
+  --gap-grid: 10px;
+  --row-h: 36px;
+}
+
+/* Map tokens into Tailwind utility namespace */
+@theme inline {
+  --color-app: var(--bg-app);
+  --color-side: var(--bg-side);
+  --color-card: var(--bg-card);
+  --color-card2: var(--bg-card2);
+  --color-inset: var(--bg-inset);
+  --color-hov: var(--bg-hover);
+  --color-act: var(--bg-active);
+  --color-brd: var(--border);
+  --color-brds: var(--border-strong);
+  --color-t1: var(--text-1);
+  --color-t2: var(--text-2);
+  --color-t3: var(--text-3);
+  --color-acc: var(--accent);
+  --color-accink: var(--accent-ink);
+  --color-accsoft: var(--accent-soft);
+  --color-accbrd: var(--accent-border);
+  --color-acctext: var(--accent-text);
+  --color-pos: var(--pos);
+  --color-possoft: var(--pos-soft);
+  --color-neg: var(--neg);
+  --color-negsoft: var(--neg-soft);
+  --color-warn: var(--warn);
+  --color-warnsoft: var(--warn-soft);
+  --color-info: var(--info);
+  --color-infosoft: var(--info-soft);
+  --color-neutral: var(--neutral);
+
+  --font-sans: 'Inter Variable', Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --radius-card: 14px;
+  --radius-ctl: 9px;
+}
+
+/* ================================================================
+   BASE
+   ================================================================ */
+
+html {
+  font-family: var(--font-sans);
+  background: var(--bg-app);
+}
+
+body {
+  margin: 0;
+  background: var(--bg-app);
+  color: var(--text-1);
+  font-size: 13.5px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+*:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: 6px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* Slim scrollbars in keeping with the dense aesthetic */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Small uppercase mono eyebrow — signature label style */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Skeleton shimmer */
+@keyframes dp-shimmer {
+  0% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.55;
+  }
+}
+.skeleton {
+  background: var(--bg-card2);
+  border-radius: 6px;
+  animation: dp-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes dp-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.fade-up {
+  animation: dp-fade-up 0.22s ease both;
+}
+
+@keyframes dp-drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+.drawer-in {
+  animation: dp-drawer-in 0.24s cubic-bezier(0.32, 0.72, 0.25, 1) both;
+}
+
+@keyframes dp-drawer-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+.drawer-in-left {
+  animation: dp-drawer-in-left 0.24s cubic-bezier(0.32, 0.72, 0.25, 1) both;
+}
+
+@keyframes dp-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.pop-in {
+  animation: dp-pop 0.14s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Recharts overrides to match the token system */
+.recharts-cartesian-axis-tick text {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--ch-axis);
+}
+.recharts-tooltip-cursor {
+  stroke: var(--border-strong);
+}
+
+/* Print: reports become clean documents */
+@media print {
+  body {
+    background: #fff;
+    color: #111;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-block {
+    break-inside: avoid;
+  }
+}
