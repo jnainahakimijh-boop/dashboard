@@ -70,7 +70,7 @@ export default function CampaignsPage() {
       id: 'name',
       header: t('filters.campaign'),
       cell: (r) => (
-        <span className="block max-w-52 truncate text-[12px] font-medium text-t1" title={r.def.name}>
+        <span className="block max-w-52 truncate text-[13px] font-medium text-t1" title={r.def.name}>
           {r.def.name}
         </span>
       ),
@@ -136,7 +136,7 @@ export default function CampaignsPage() {
   ];
 
   return (
-    <div className="flex flex-col gap-[var(--gap-grid)] p-4 md:p-6">
+    <div className="flex flex-col gap-[var(--gap-grid)] p-5 md:p-8">
       <Card title={t('cmp.table')} subtitle={t('cmp.subtitle')}>
         {rows.length > 0 ? (
           <DataTable columns={cols} rows={rows} rowKey={(r) => r.def.id} defaultSort={{ id: 'spend', dir: 'desc' }} searchable onRowClick={(r) => openDetail(r.def.id)} ariaLabel={t('cmp.table')} />
@@ -196,11 +196,11 @@ function CampaignDrawer({ row, q, onClose }: { row: CampRow; q: ReturnType<typeo
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <div className="eyebrow text-[9px]">{t('cmp.detail')}</div>
+            <div className="eyebrow text-[10.5px]">{t('cmp.detail')}</div>
             <h2 className="m-0 mt-0.5 text-[16px] font-semibold text-t1">{def.name}</h2>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               <Badge tone={def.status === 'active' ? 'pos' : def.status === 'paused' ? 'warn' : def.status === 'planned' ? 'neutral' : 'info'}>{t(statusKey).toUpperCase()}</Badge>
-              <span className="mono text-[10px] text-t3">
+              <span className="mono text-[11px] text-t3">
                 {fmtDayFull(def.startD, lang)} – {def.endD > 223 ? '…' : fmtDayFull(def.endD, lang)} · {def.owner} · {lang === 'fr' ? theme?.nameFr : theme?.name}
               </span>
             </div>
@@ -231,7 +231,7 @@ function CampaignDrawer({ row, q, onClose }: { row: CampRow; q: ReturnType<typeo
                 },
               ].map((kv) => (
                 <div key={kv.label} className="rounded-[10px] border border-brd bg-card p-2.5" title={kv.title}>
-                  <div className="eyebrow text-[8.5px]">{kv.label}</div>
+                  <div className="eyebrow text-[10px]">{kv.label}</div>
                   <div className="mono mt-1 text-[15px] font-semibold text-t1 tnum">{kv.v}</div>
                 </div>
               ))}

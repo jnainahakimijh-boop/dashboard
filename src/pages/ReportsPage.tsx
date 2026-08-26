@@ -36,15 +36,15 @@ export default function ReportsPage() {
   if (filters.devices.length) activeFilterSummary.push(`${t('filters.device')}: ${filters.devices.join(', ')}`);
 
   return (
-    <div className="flex flex-col gap-[var(--gap-grid)] p-4 md:p-6">
+    <div className="flex flex-col gap-[var(--gap-grid)] p-5 md:p-8">
       <div className="grid gap-[var(--gap-grid)] lg:grid-cols-2">
         <Card title={t('rep.export')} subtitle={t('rep.exportSub')}>
           <dl className="m-0 mb-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[11.5px]">
-            <dt className="eyebrow text-[8.5px] leading-5">{t('range.dateRange')}</dt>
+            <dt className="eyebrow text-[10px] leading-5">{t('range.dateRange')}</dt>
             <dd className="mono m-0 text-t1 tnum">{fmtRange(filters.from, filters.to, lang)}</dd>
-            <dt className="eyebrow text-[8.5px] leading-5">{t('rep.appliedFilters')}</dt>
+            <dt className="eyebrow text-[10px] leading-5">{t('rep.appliedFilters')}</dt>
             <dd className="m-0 text-t2">{activeFilterSummary.length ? activeFilterSummary.join(' · ') : t('filters.all')}</dd>
-            <dt className="eyebrow text-[8.5px] leading-5">{t('rep.generated')}</dt>
+            <dt className="eyebrow text-[10px] leading-5">{t('rep.generated')}</dt>
             <dd className="mono m-0 text-t2 tnum">
               {generatedAt.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
             </dd>
@@ -60,7 +60,7 @@ export default function ReportsPage() {
             </Btn>
           </div>
           <div className="mt-4 rounded-[10px] border border-brd bg-card2 p-3">
-            <div className="eyebrow mb-1 text-[8.5px]">{t('rep.methodology')}</div>
+            <div className="eyebrow mb-1 text-[10px]">{t('rep.methodology')}</div>
             <p className="m-0 text-[11px] leading-relaxed text-t2">{t('rep.methodologyText')}</p>
           </div>
         </Card>
@@ -74,8 +74,8 @@ export default function ReportsPage() {
                 <li key={v.id} className="flex items-center gap-3 rounded-[10px] border border-brd bg-card2 px-3 py-2.5">
                   <FileText size={14} className="shrink-0 text-t3" aria-hidden />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[12.5px] font-medium text-t1">{v.name}</div>
-                    <div className="mono text-[9.5px] text-t3 tnum">
+                    <div className="truncate text-[13px] font-medium text-t1">{v.name}</div>
+                    <div className="mono text-[11px] text-t3 tnum">
                       {fmtRange(v.filters.from, v.filters.to, lang)} · {new Date(v.createdAt).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB')}
                     </div>
                   </div>
@@ -96,7 +96,7 @@ export default function ReportsPage() {
               <tr className="bg-card2">
                 {[t('cat.metric'), t('rep.frequency'), t('rep.recipients'), t('rep.lastSent'), t('rep.nextSend'), t('adm.status')].map((h) => (
                   <th key={h} scope="col" className="border-b border-brd px-3 py-2 text-left">
-                    <span className="mono text-[9.5px] uppercase tracking-[0.1em] text-t3">{h}</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-t3">{h}</span>
                   </th>
                 ))}
               </tr>
@@ -105,7 +105,7 @@ export default function ReportsPage() {
               {SCHEDULES.map((s) => (
                 <tr key={s.id} className="border-b border-brd last:border-b-0">
                   <td className="px-3 py-2.5">
-                    <span className="flex items-center gap-2 text-[12px] font-medium text-t1">
+                    <span className="flex items-center gap-2 text-[13px] font-medium text-t1">
                       <Calendar size={13} className="text-t3" aria-hidden />
                       {s.name[lang]}
                     </span>

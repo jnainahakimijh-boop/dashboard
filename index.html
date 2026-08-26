@@ -10,13 +10,13 @@
       // Apply persisted theme before first paint to avoid a flash.
       try {
         var s = JSON.parse(localStorage.getItem('dp.settings') || '{}');
-        var mode = s.theme || 'dark';
+        var mode = s.theme || 'light';
         if (mode === 'system') {
-          mode = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+          mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
         document.documentElement.dataset.theme = mode;
       } catch (e) {
-        document.documentElement.dataset.theme = 'dark';
+        document.documentElement.dataset.theme = 'light';
       }
     </script>
   </head>

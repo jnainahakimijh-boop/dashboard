@@ -12,7 +12,6 @@ import {
   Settings,
   Share2,
   ShieldCheck,
-  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import type { MsgKey } from '@/i18n/messages';
@@ -30,7 +29,7 @@ export interface NavSection {
 
 export const NAV_SECTIONS: NavSection[] = [
   {
-    labelKey: 'nav.analyse',
+    labelKey: 'nav.performance',
     items: [
       { path: '/', labelKey: 'nav.overview', icon: LayoutDashboard },
       { path: '/web', labelKey: 'nav.web', icon: Activity },
@@ -44,25 +43,23 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     labelKey: 'nav.intelligence',
     items: [
-      { path: '/insights', labelKey: 'nav.insights', icon: Sparkles },
-      { path: '/recommendations', labelKey: 'nav.recommendations', icon: Lightbulb },
+      { path: '/insights', labelKey: 'nav.insightsRecs', icon: Lightbulb },
       { path: '/reports', labelKey: 'nav.reports', icon: BarChart3 },
     ],
   },
   {
-    labelKey: 'nav.data',
+    labelKey: 'nav.governance',
     items: [
       { path: '/data-quality', labelKey: 'nav.dq', icon: ListChecks },
       { path: '/kpi-catalogue', labelKey: 'nav.catalogue', icon: BookOpenCheck },
     ],
   },
-  {
-    labelKey: 'nav.system',
-    items: [
-      { path: '/settings', labelKey: 'nav.settings', icon: Settings },
-      { path: '/admin', labelKey: 'nav.admin', icon: ShieldCheck },
-    ],
-  },
+];
+
+/** Pinned below the scrollable groups, above the user profile. */
+export const NAV_BOTTOM: NavItem[] = [
+  { path: '/settings', labelKey: 'nav.settings', icon: Settings },
+  { path: '/admin', labelKey: 'nav.admin', icon: ShieldCheck },
 ];
 
 export interface PageMeta {
@@ -82,7 +79,6 @@ export const PAGE_META: Record<string, PageMeta> = {
   '/journey': { eyebrowKey: 'jny.eyebrow', titleKey: 'jny.title', subtitleKey: 'jny.subtitle', filterDims: ['markets', 'platforms', 'devices'] },
   '/audience': { eyebrowKey: 'aud.eyebrow', titleKey: 'aud.title', subtitleKey: 'aud.subtitle', filterDims: ['markets', 'channels', 'devices'] },
   '/insights': { eyebrowKey: 'ins.eyebrow', titleKey: 'ins.title', subtitleKey: 'ins.subtitle', filterDims: ['markets', 'channels', 'platforms', 'devices'] },
-  '/recommendations': { eyebrowKey: 'rec.eyebrow', titleKey: 'rec.title', subtitleKey: 'rec.subtitle', filterDims: [] },
   '/reports': { eyebrowKey: 'rep.eyebrow', titleKey: 'rep.title', subtitleKey: 'rep.subtitle', filterDims: [] },
   '/data-quality': { eyebrowKey: 'dq.eyebrow', titleKey: 'dq.title', subtitleKey: 'dq.subtitle', filterDims: [] },
   '/kpi-catalogue': { eyebrowKey: 'cat.eyebrow', titleKey: 'cat.title', subtitleKey: 'cat.subtitle', filterDims: [] },
@@ -90,5 +86,5 @@ export const PAGE_META: Record<string, PageMeta> = {
   '/admin': { eyebrowKey: 'adm.eyebrow', titleKey: 'adm.title', subtitleKey: 'adm.subtitle', filterDims: [] },
 };
 
-/** Pages where the global filter bar is shown at all */
+/** Pages where the analytical toolbar (period + filters) is shown */
 export const FILTERED_PAGES = new Set(['/', '/web', '/social', '/content', '/campaigns', '/journey', '/audience', '/insights']);

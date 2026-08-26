@@ -82,12 +82,17 @@ impossible filter combinations).
 
 ## Feature notes
 
+- **Design**: light executive workspace (`#F4F7FB` canvas, white cards) with a
+  dark navy sidebar (`#0B172A`) and a crimson interaction accent (`#E11D2E`).
+  Light is the flagship theme; a navy-family dark theme and system mode are
+  available in Settings.
+- **Login**: neutral demo authentication (`admin` / `admin`, clearly labelled);
+  production deployments would use SSO.
 - **Filters** are global, URL-synced (shareable views) and genuinely recompute
   every aggregate. Dimensions that don't apply to a page are visibly dimmed.
-- **Saved views** persist locally and are exposed in the header and Reports.
+- **Saved views** persist locally and are exposed in the toolbar and Reports.
 - **Command palette** (`⌘K` / `Ctrl+K`) searches pages, actions, campaigns,
   landing pages, KPIs, markets and content.
-- **Dark theme is the flagship**; light and system themes are fully supported.
 - **EN/FR** via dictionaries; language, theme, density and preferences persist.
 - Accessibility: semantic HTML, keyboard-navigable controls, aria labels on
   icon-only buttons, chart descriptions, non-colour delta indicators (arrows),

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { ArrowUpRight, Wrench } from 'lucide-react';
 import { FORMATS, PLATFORMS, THEMES } from '@/data/dimensions';
 import { useFilters } from '@/state/FiltersContext';
 import { useI18n } from '@/i18n';
@@ -6,8 +7,8 @@ import { contentItems, toQ } from '@/lib/aggregate';
 import { engagementRateSocial, ratio } from '@/lib/metrics';
 import { fmtCompact, fmtDayFull, fmtInt, fmtPct } from '@/lib/format';
 import { RankedList } from '@/components/charts/RankedList';
-import { ScatterMatrix, type MatrixPoint, type Quadrant, type QuadrantCopy } from '@/components/charts/ScatterMatrix';
-import { Card, EmptyState, MiniBar } from '@/components/ui/primitives';
+import { ScatterMatrix, classifyQuadrant, type MatrixPoint, type Quadrant, type QuadrantCopy } from '@/components/charts/ScatterMatrix';
+import { Badge, Card, EmptyState, MiniBar } from '@/components/ui/primitives';
 import { DataTable, Num, type Column } from '@/components/tables/DataTable';
 import type { ContentItem } from '@/types';
 
@@ -88,13 +89,27 @@ export default function ContentPage() {
     reconsider: { label: t('cnt.q.reconsider'), desc: t('cnt.q.reconsiderDesc') },
   };
 
+  /* quadrant-derived lists: medians match the matrix exactly */
+  const { topContent, needsWork } = useMemo(() => {
+    const xs = matrixPoints.map((pt) => pt.x).sort((a, b) => a - b);
+    const ys = matrixPoints.map((pt) => pt.y).sort((a, b) => a - b);
+    const med = (arr: number[]) => (arr.length ? (arr.length % 2 ? arr[Math.floor(arr.length / 2)] : (arr[arr.length / 2 - 1] + arr[arr.length / 2]) / 2) : 0);
+    const mx = med(xs);
+    const my = med(ys);
+    const withQ = matrixPoints.map((pt) => ({ ...pt, quadrant: classifyQuadrant(pt, mx, my) }));
+    return {
+      topContent: withQ.filter((pt) => pt.quadrant === 'amplify').sort((a, b) => b.y * Math.log10(Math.max(b.x, 10)) - a.y * Math.log10(Math.max(a.x, 10))).slice(0, 4),
+      needsWork: withQ.filter((pt) => pt.quadrant === 'optimise' || pt.quadrant === 'reconsider').sort((a, b) => b.x - a.x).slice(0, 4),
+    };
+  }, [matrixPoints]);
+
   /* library table */
   const libCols: Column<ContentItem>[] = [
     {
       id: 'title',
       header: t('nav.content'),
       cell: (r) => (
-        <span className="block max-w-72 truncate text-[12px] font-medium text-t1" title={lang === 'fr' ? r.titleFr : r.title}>
+        <span className="block max-w-72 truncate text-[13px] font-medium text-t1" title={lang === 'fr' ? r.titleFr : r.title}>
           {lang === 'fr' ? r.titleFr : r.title}
         </span>
       ),
@@ -130,7 +145,7 @@ export default function ContentPage() {
   const empty = items.length === 0;
 
   return (
-    <div className="flex flex-col gap-[var(--gap-grid)] p-4 md:p-6">
+    <div className="flex flex-col gap-[var(--gap-grid)] p-5 md:p-8">
       <div className="grid gap-[var(--gap-grid)] lg:grid-cols-2">
         <Card title={t('cnt.topics')} subtitle={t('cnt.topicsSub')}>
           {topicRows.length > 0 ? (
@@ -146,8 +161,8 @@ export default function ContentPage() {
               {formatRows.map((r) => (
                 <li key={r.id} className="grid grid-cols-[minmax(80px,130px)_1fr_auto] items-center gap-2.5">
                   <div className="min-w-0">
-                    <div className="truncate text-[12px] font-medium text-t1">{r.name}</div>
-                    <div className="mono text-[9.5px] text-t3">{r.n} · {fmtCompact(r.imp, lang)} imp.</div>
+                    <div className="truncate text-[13px] font-medium text-t1">{r.name}</div>
+                    <div className="mono text-[11px] text-t3">{r.n} · {fmtCompact(r.imp, lang)} imp.</div>
                   </div>
                   <MiniBar pct={(r.er / maxEr) * 100} color="var(--ch-3)" />
                   <Num strong>{fmtPct(r.er, lang)}</Num>
@@ -175,6 +190,46 @@ export default function ContentPage() {
           <EmptyState title={t('state.empty.title')} body={t('state.empty.body')} />
         )}
       </Card>
+
+      <div className="grid gap-[var(--gap-grid)] lg:grid-cols-2">
+        <Card title={t('cnt.top')} subtitle={t('cnt.topSub')}>
+          {topContent.length > 0 ? (
+            <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+              {topContent.map((c) => (
+                <li key={c.id} className="flex items-start gap-3 rounded-[11px] border border-brd bg-card2 px-3.5 py-3">
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-possoft"><ArrowUpRight size={13} className="text-pos" aria-hidden /></span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[13px] font-medium text-t1" title={c.label}>{c.label}</div>
+                    <div className="mono mt-0.5 text-[11px] text-t3 tnum">{c.sub} · {fmtCompact(c.x, lang)} imp. · ER {fmtPct(c.y, lang)}</div>
+                  </div>
+                  <Badge tone="pos">{t('cnt.q.amplify').toUpperCase()}</Badge>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState title={t('state.empty.title')} body={t('state.empty.body')} />
+          )}
+        </Card>
+
+        <Card title={t('cnt.needsWork')} subtitle={t('cnt.needsWorkSub')}>
+          {needsWork.length > 0 ? (
+            <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+              {needsWork.map((c) => (
+                <li key={c.id} className="flex items-start gap-3 rounded-[11px] border border-brd bg-card2 px-3.5 py-3">
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-warnsoft"><Wrench size={12} className="text-warn" aria-hidden /></span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[13px] font-medium text-t1" title={c.label}>{c.label}</div>
+                    <div className="mono mt-0.5 text-[11px] text-t3 tnum">{c.sub} · {fmtCompact(c.x, lang)} imp. · ER {fmtPct(c.y, lang)}</div>
+                  </div>
+                  <Badge tone="warn">{t('cnt.q.optimise').toUpperCase()}</Badge>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState title={t('state.empty.title')} body={t('state.empty.body')} />
+          )}
+        </Card>
+      </div>
 
       <Card title={t('cnt.items')} subtitle={t('cnt.itemsSub')}>
         {!empty ? (

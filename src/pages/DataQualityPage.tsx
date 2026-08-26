@@ -38,7 +38,7 @@ export default function DataQualityPage() {
       id: 'name',
       header: t('dq.source'),
       cell: (r) => (
-        <span className="flex items-center gap-2 text-[12px] font-medium text-t1">
+        <span className="flex items-center gap-2 text-[13px] font-medium text-t1">
           <Database size={13} className="text-t3" aria-hidden />
           {r.name}
         </span>
@@ -78,7 +78,7 @@ export default function DataQualityPage() {
   ];
 
   return (
-    <div className="flex flex-col gap-[var(--gap-grid)] p-4 md:p-6">
+    <div className="flex flex-col gap-[var(--gap-grid)] p-5 md:p-8">
       <div className="grid gap-[var(--gap-grid)] lg:grid-cols-[1fr_2fr]">
         <Card title={t('dq.health')} subtitle={t('dq.healthSub')}>
           <div className="flex items-center gap-5">
@@ -90,7 +90,7 @@ export default function DataQualityPage() {
             >
               <div className="flex h-[88px] w-[88px] flex-col items-center justify-center rounded-full bg-card">
                 <span className="mono text-[26px] font-semibold leading-none text-t1 tnum">{score.total}</span>
-                <span className="mono text-[9px] text-t3">/100</span>
+                <span className="mono text-[10.5px] text-t3">/100</span>
               </div>
             </div>
             <dl className="m-0 flex flex-1 flex-col gap-2">
@@ -124,7 +124,7 @@ export default function DataQualityPage() {
                 )}
                 <div className="min-w-0">
                   <div className="text-[12px] font-medium leading-snug text-t1">{c.label[lang]}</div>
-                  <div className="mono mt-0.5 text-[10px] leading-relaxed text-t3 tnum">{c.detail[lang]}</div>
+                  <div className="mono mt-0.5 text-[11px] leading-relaxed text-t3 tnum">{c.detail[lang]}</div>
                 </div>
               </li>
             ))}

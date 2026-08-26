@@ -52,12 +52,12 @@ export default function KpiCataloguePage() {
     {
       id: 'def',
       header: t('cat.definition'),
-      cell: (r) => <span className="block max-w-72 text-[11.5px] leading-snug text-t2">{t(r.defKey)}</span>,
+      cell: (r) => <span className="block max-w-72 text-[12.5px] leading-snug text-t2">{t(r.defKey)}</span>,
     },
     {
       id: 'formula',
       header: t('cat.formula'),
-      cell: (r) => <code className="mono rounded-[5px] border border-brd bg-inset px-1.5 py-0.5 text-[10.5px] text-acctext">{r.formula}</code>,
+      cell: (r) => <code className="mono rounded-[5px] border border-brd bg-inset px-1.5 py-0.5 text-[11.5px] text-acctext">{r.formula}</code>,
       searchText: (r) => r.formula,
     },
     { id: 'source', header: t('cat.sourceCol'), cell: (r) => <Num muted>{r.source[lang]}</Num>, sortValue: (r) => r.source[lang] },
@@ -68,7 +68,7 @@ export default function KpiCataloguePage() {
   ];
 
   return (
-    <div className="flex flex-col gap-[var(--gap-grid)] p-4 md:p-6">
+    <div className="flex flex-col gap-[var(--gap-grid)] p-5 md:p-8">
       <Card title={t('cat.title')} subtitle={t('cat.subtitle')}>
         <DataTable columns={cols} rows={ENTRIES} rowKey={(r) => r.id} searchable defaultSort={{ id: 'name', dir: 'asc' }} ariaLabel={t('cat.title')} />
       </Card>

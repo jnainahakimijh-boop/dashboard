@@ -66,7 +66,7 @@ export default function JourneyPage() {
     .sort((a, b) => b.value - a.value);
 
   return (
-    <div className="flex flex-col gap-[var(--gap-grid)] p-4 md:p-6">
+    <div className="flex flex-col gap-[var(--gap-grid)] p-5 md:p-8">
       <Card
         title={t('jny.stages')}
         subtitle={t('ov.funnelSub')}
@@ -88,10 +88,10 @@ export default function JourneyPage() {
                   {i > 0 && (
                     <div className="flex items-center gap-2 py-1 pl-2">
                       <ArrowDown size={12} className="text-t3" aria-hidden />
-                      <span className="mono text-[10.5px] text-t2 tnum">{stageRate === null ? '—' : fmtPct(stageRate * 100, lang)}</span>
-                      <span className="mono text-[9.5px] uppercase tracking-[0.08em] text-t3">{t('jny.stageRate')}</span>
+                      <span className="mono text-[11.5px] text-t2 tnum">{stageRate === null ? '—' : fmtPct(stageRate * 100, lang)}</span>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-t3">{t('jny.stageRate')}</span>
                       {dropOff !== null && (
-                        <span className="mono ml-2 text-[9.5px] text-t3 tnum">
+                        <span className="mono ml-2 text-[11px] text-t3 tnum">
                           {t('jny.dropOff')}: {fmtPct(dropOff, lang)}
                         </span>
                       )}
@@ -100,12 +100,12 @@ export default function JourneyPage() {
                   <div className="grid grid-cols-[minmax(120px,190px)_1fr_auto] items-center gap-3 rounded-[10px] border border-brd bg-card2 px-3.5 py-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="truncate text-[12.5px] font-medium text-t1">{t(def.label)}</span>
+                        <span className="truncate text-[13px] font-medium text-t1">{t(def.label)}</span>
                         <Badge tone={def.attribution === 'modelled' ? 'warn' : 'neutral'} title={t('jny.attributionNote')}>
                           {t(def.attribution === 'modelled' ? 'jny.modelled' : 'jny.deterministic').toUpperCase()}
                         </Badge>
                       </div>
-                      <div className="truncate text-[10.5px] text-t3">{t(def.desc)}</div>
+                      <div className="truncate text-[11.5px] text-t3">{t(def.desc)}</div>
                     </div>
                     <div className="hidden h-[16px] overflow-hidden rounded-[4px] bg-hov sm:block">
                       <div className="h-full rounded-[4px]" style={{ width: `${widthPct}%`, background: 'var(--ch-1)', opacity: 0.3 + 0.7 * (i / (stages.length - 1)) }} />
@@ -113,7 +113,7 @@ export default function JourneyPage() {
                     <div className="text-right">
                       <div className="mono text-[15px] font-semibold text-t1 tnum">{fmtInt(s.value, lang)}</div>
                       {showCompare && change !== null && (
-                        <div className={`mono text-[10px] tnum ${change >= 0 ? 'text-pos' : 'text-neg'}`}>{fmtRelDelta(change, lang)} {t('misc.vs')} {t('compare.prevShort').toLowerCase()}</div>
+                        <div className={`mono text-[11px] tnum ${change >= 0 ? 'text-pos' : 'text-neg'}`}>{fmtRelDelta(change, lang)} {t('misc.vs')} {t('compare.prevShort').toLowerCase()}</div>
                       )}
                     </div>
                   </div>
@@ -130,15 +130,15 @@ export default function JourneyPage() {
         </Card>
 
         <Card title={t('jny.attribution')}>
-          <p className="m-0 text-[12px] leading-relaxed text-t2">{t('jny.attributionNote')}</p>
+          <p className="m-0 text-[13px] leading-relaxed text-t2">{t('jny.attributionNote')}</p>
           <div className="mt-3 flex flex-col gap-2">
             <div className="flex items-start gap-2">
               <Badge tone="neutral">{t('jny.deterministic').toUpperCase()}</Badge>
-              <span className="text-[11.5px] leading-snug text-t3">{lang === 'fr' ? 'Comptages directs depuis la source (impressions, clics, sessions engagées, conversions).' : 'Direct counts from the source system (impressions, clicks, engaged sessions, conversions).'}</span>
+              <span className="text-[12px] leading-snug text-t3">{lang === 'fr' ? 'Comptages directs depuis la source (impressions, clics, sessions engagées, conversions).' : 'Direct counts from the source system (impressions, clicks, engaged sessions, conversions).'}</span>
             </div>
             <div className="flex items-start gap-2">
               <Badge tone="warn">{t('jny.modelled').toUpperCase()}</Badge>
-              <span className="text-[11.5px] leading-snug text-t3">{lang === 'fr' ? 'Rapprochement agrégé clics → sessions (pas de suivi individuel inter-plateformes).' : 'Aggregate click → session matching (no cross-platform individual tracking).'}</span>
+              <span className="text-[12px] leading-snug text-t3">{lang === 'fr' ? 'Rapprochement agrégé clics → sessions (pas de suivi individuel inter-plateformes).' : 'Aggregate click → session matching (no cross-platform individual tracking).'}</span>
             </div>
           </div>
         </Card>

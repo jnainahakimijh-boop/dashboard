@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { ArrowRight, CornerDownLeft, Search } from 'lucide-react';
-import { NAV_SECTIONS } from '@/lib/nav';
+import { NAV_BOTTOM, NAV_SECTIONS } from '@/lib/nav';
 import { CAMPAIGN_DEFS, LANDING_PAGES, MARKETS, PLATFORMS, dataset } from '@/data';
 import { WEB_KPIS, SOCIAL_KPIS } from '@/lib/kpis';
 import { useI18n } from '@/i18n';
@@ -31,15 +31,13 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   const listRef = useRef<HTMLUListElement>(null);
 
   const items = useMemo<Item[]>(() => {
-    const nav: Item[] = NAV_SECTIONS.flatMap((s) =>
-      s.items.map((i) => ({
+    const nav: Item[] = [...NAV_SECTIONS.flatMap((s) => s.items), ...NAV_BOTTOM].map((i) => ({
         id: `nav-${i.path}`,
         category: t('cmd.pages'),
         label: t(i.labelKey),
         hint: t('cmd.hint.nav'),
         run: () => navigate(i.path),
-      })),
-    );
+      }));
     const actions: Item[] = [
       {
         id: 'act-export',
@@ -149,7 +147,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             aria-label={t('cmd.placeholder')}
             className="h-12 w-full bg-transparent text-[14px] text-t1 outline-none placeholder:text-t3"
           />
-          <kbd className="mono shrink-0 rounded-[5px] border border-brd bg-inset px-1.5 py-0.5 text-[9px] text-t3">ESC</kbd>
+          <kbd className="mono shrink-0 rounded-[5px] border border-brd bg-inset px-1.5 py-0.5 text-[10.5px] text-t3">ESC</kbd>
         </div>
         <ul ref={listRef} className="m-0 max-h-[46vh] list-none overflow-y-auto p-1.5" role="listbox">
           {results.map((item, i) => {
@@ -157,7 +155,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             lastCategory = item.category;
             return (
               <li key={item.id} role="option" aria-selected={i === active}>
-                {showCat && <div className="eyebrow px-2.5 pb-1 pt-2 text-[8.5px]">{item.category}</div>}
+                {showCat && <div className="eyebrow px-2.5 pb-1 pt-2 text-[10px]">{item.category}</div>}
                 <button
                   type="button"
                   onMouseEnter={() => setActive(i)}
@@ -165,7 +163,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                   className={clsx('flex w-full items-center justify-between gap-3 rounded-[8px] px-2.5 py-2 text-left text-[13px]', i === active ? 'bg-act text-t1' : 'text-t2')}
                 >
                   <span className="flex min-w-0 items-center gap-2">
-                    {item.hint && <span className="mono shrink-0 text-[9px] uppercase tracking-[0.08em] text-t3">{item.hint}</span>}
+                    {item.hint && <span className="mono shrink-0 text-[10.5px] uppercase tracking-[0.08em] text-t3">{item.hint}</span>}
                     <span className="truncate">{item.label}</span>
                   </span>
                   {i === active && <CornerDownLeft size={12} className="shrink-0 text-t3" aria-hidden />}

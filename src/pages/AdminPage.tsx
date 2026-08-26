@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Check, Minus, Plug, RefreshCw, ShieldCheck, UserPlus } from 'lucide-react';
+import { Activity, Check, Database, Mail, Minus, Plug, RefreshCw, ShieldCheck, UserPlus, Users } from 'lucide-react';
 import { useI18n } from '@/i18n';
 import { useToast } from '@/state/ToastContext';
 import { Badge, Btn, Card, Segmented, type BadgeTone } from '@/components/ui/primitives';
 import { DataTable, Num, type Column } from '@/components/tables/DataTable';
 import { fmtInt } from '@/lib/format';
+import { healthScore } from '@/lib/dataQuality';
 import type { MsgKey } from '@/i18n/messages';
 
-type Tab = 'users' | 'roles' | 'integrations' | 'governance' | 'flags' | 'security' | 'audit';
+type Tab = 'overview' | 'users' | 'roles' | 'integrations' | 'governance' | 'flags' | 'security' | 'audit';
 
 /* ---------------- demo data ---------------- */
 
@@ -101,13 +102,14 @@ const AUDIT_LOG: Array<{ time: string; user: string; action: { en: string; fr: s
 export default function AdminPage() {
   const { t, lang } = useI18n();
   const { toast } = useToast();
-  const [tab, setTab] = useState<Tab>('users');
+  const [tab, setTab] = useState<Tab>('overview');
   const [users, setUsers] = useState(INITIAL_USERS);
   const [gov, setGov] = useState(INITIAL_GOV);
   const [flags, setFlags] = useState(FLAGS);
   const [syncing, setSyncing] = useState<string | null>(null);
 
   const tabs: { id: Tab; label: string }[] = [
+    { id: 'overview', label: t('adm.tab.overview') },
     { id: 'users', label: t('adm.users') },
     { id: 'roles', label: t('adm.roles') },
     { id: 'integrations', label: t('adm.integrations') },
@@ -126,10 +128,10 @@ export default function AdminPage() {
       header: t('adm.name'),
       cell: (r) => (
         <span className="flex items-center gap-2">
-          <span aria-hidden className="flex h-6 w-6 items-center justify-center rounded-full border border-brds bg-card2 text-[9px] font-semibold text-t1">
+          <span aria-hidden className="flex h-6 w-6 items-center justify-center rounded-full border border-brds bg-card2 text-[10.5px] font-semibold text-t1">
             {r.name.split(' ').map((s) => s[0]).slice(0, 2).join('')}
           </span>
-          <span className="text-[12px] font-medium text-t1">{r.name}</span>
+          <span className="text-[13px] font-medium text-t1">{r.name}</span>
         </span>
       ),
       sortValue: (r) => r.name,
@@ -184,10 +186,67 @@ export default function AdminPage() {
   ];
 
   return (
-    <div className="flex flex-col gap-[var(--gap-grid)] p-4 md:p-6">
+    <div className="flex flex-col gap-[var(--gap-grid)] p-5 md:p-8">
       <div className="overflow-x-auto">
         <Segmented ariaLabel={t('adm.title')} options={tabs} value={tab} onChange={setTab} />
       </div>
+
+      {tab === 'overview' && (
+        <>
+          <div className="grid grid-cols-1 gap-[var(--gap-grid)] sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              { icon: Users, label: t('adm.activeUsers'), value: fmtInt(users.filter((u) => u.status === 'active').length, lang), sub: `${users.length} ${t('adm.users').toLowerCase()}` },
+              { icon: Database, label: t('adm.connectedSources'), value: fmtInt(INTEGRATIONS.filter((i2) => i2.status === 'connected').length, lang), sub: `${INTEGRATIONS.length} ${t('adm.integrations').toLowerCase()}` },
+              { icon: Activity, label: t('adm.dataHealth'), value: `${healthScore().total}/100`, sub: t('dq.healthSub').split('.')[0] },
+              { icon: Mail, label: t('adm.pendingInvites'), value: fmtInt(users.filter((u) => u.status === 'invited').length, lang), sub: t('adm.invited') },
+            ].map((card) => (
+              <div key={card.label} className="rounded-[14px] border border-brd bg-card p-[var(--pad-card)] shadow-[var(--shadow-card)]">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-inset text-t2"><card.icon size={15} aria-hidden /></span>
+                  <span className="eyebrow">{card.label}</span>
+                </div>
+                <div className="mt-3 text-[26px] font-bold leading-none tracking-[-0.02em] text-t1 tnum">{card.value}</div>
+                <div className="mt-2 truncate text-[12px] text-t3">{card.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-[var(--gap-grid)] lg:grid-cols-2">
+            <Card title={t('adm.systemHealth')}>
+              <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+                {INTEGRATIONS.map((integ) => (
+                  <li key={integ.id} className="flex items-center gap-3 rounded-[10px] border border-brd bg-card2 px-3.5 py-2.5">
+                    <span className={`h-2 w-2 shrink-0 rounded-full ${integ.status === 'connected' ? 'bg-pos' : 'bg-warn'}`} aria-hidden />
+                    <span className="flex-1 text-[13px] font-medium text-t1">{integ.name}</span>
+                    <span className="mono text-[11.5px] text-t3">{integ.lastSync[lang]}</span>
+                    <span className="mono w-14 text-right text-[12px] font-medium text-t1 tnum">{integ.health}/100</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+            <Card
+              title={t('adm.recentActivity')}
+              right={
+                <button type="button" onClick={() => setTab('audit')} className="text-[12.5px] font-semibold text-acctext hover:underline">
+                  {t('adm.viewAudit')}
+                </button>
+              }
+            >
+              <ul className="m-0 flex list-none flex-col p-0">
+                {AUDIT_LOG.slice(0, 5).map((row, i) => (
+                  <li key={i} className="flex items-start gap-3 border-b border-brd py-2.5 last:border-b-0">
+                    <span className="mono mt-0.5 w-24 shrink-0 text-[11.5px] text-t3">{row.time}</span>
+                    <span className="min-w-0 flex-1 text-[13px] text-t1">
+                      <span className="font-medium">{row.user}</span> · <span className="text-t2">{row.action[lang]}</span>
+                    </span>
+                    <Badge tone={row.result === 'Success' ? 'pos' : 'neg'}>{row.result === 'Success' ? 'OK' : 'DENIED'}</Badge>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          </div>
+        </>
+      )}
 
       {tab === 'users' && (
         <Card
@@ -221,11 +280,11 @@ export default function AdminPage() {
               <thead>
                 <tr className="bg-card2">
                   <th scope="col" className="border-b border-brd px-3 py-2 text-left">
-                    <span className="mono text-[9.5px] uppercase tracking-[0.1em] text-t3">{t('adm.permission')}</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-t3">{t('adm.permission')}</span>
                   </th>
                   {(['Administrator', 'Analyst', 'Editor', 'Viewer'] as const).map((role) => (
                     <th key={role} scope="col" className="border-b border-brd px-3 py-2 text-center">
-                      <span className="mono text-[9.5px] uppercase tracking-[0.1em] text-t3">{role}</span>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-t3">{role}</span>
                     </th>
                   ))}
                 </tr>
@@ -309,7 +368,7 @@ export default function AdminPage() {
                 <tr className="bg-card2">
                   {[t('cat.metric'), t('cat.formula'), t('cat.owner'), t('cat.sourceCol'), t('misc.target'), t('cat.status'), t('adm.actions')].map((h, i) => (
                     <th key={h} scope="col" className={`border-b border-brd px-3 py-2 ${i === 6 ? 'text-right' : 'text-left'}`}>
-                      <span className="mono text-[9.5px] uppercase tracking-[0.1em] text-t3">{h}</span>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-t3">{h}</span>
                     </th>
                   ))}
                 </tr>
@@ -317,9 +376,9 @@ export default function AdminPage() {
               <tbody>
                 {gov.map((k) => (
                   <tr key={k.id} className="border-b border-brd last:border-b-0">
-                    <td className="px-3 py-2.5 text-[12px] font-medium text-t1">{k.name}</td>
+                    <td className="px-3 py-2.5 text-[13px] font-medium text-t1">{k.name}</td>
                     <td className="px-3 py-2.5">
-                      <code className="mono rounded-[5px] border border-brd bg-inset px-1.5 py-0.5 text-[10px] text-acctext">{k.formula}</code>
+                      <code className="mono rounded-[5px] border border-brd bg-inset px-1.5 py-0.5 text-[11px] text-acctext">{k.formula}</code>
                     </td>
                     <td className="mono px-3 py-2.5 text-[11px] text-t2">{k.owner}</td>
                     <td className="mono px-3 py-2.5 text-[11px] text-t2">{k.source}</td>
@@ -368,8 +427,8 @@ export default function AdminPage() {
             {flags.map((f) => (
               <li key={f.id} className="flex items-center justify-between gap-4 border-b border-brd py-3 last:border-b-0">
                 <div className="min-w-0">
-                  <div className="text-[12.5px] font-medium text-t1">{f.label[lang]}</div>
-                  <div className="mt-0.5 text-[10.5px] leading-snug text-t3">{f.desc[lang]}</div>
+                  <div className="text-[13px] font-medium text-t1">{f.label[lang]}</div>
+                  <div className="mt-0.5 text-[12px] leading-snug text-t3">{f.desc[lang]}</div>
                 </div>
                 <button
                   type="button"
@@ -404,7 +463,7 @@ export default function AdminPage() {
           ].map((row) => (
             <div key={row.label} className="flex items-center justify-between gap-3 rounded-[12px] border border-brd bg-card p-4">
               <div>
-                <div className="eyebrow text-[8.5px]">{row.label}</div>
+                <div className="eyebrow text-[10px]">{row.label}</div>
                 <div className="mt-1 text-[12.5px] text-t1">{row.value}</div>
               </div>
               {row.badge && <Badge tone={row.badge.tone}>{row.badge.text.toUpperCase()}</Badge>}
@@ -421,7 +480,7 @@ export default function AdminPage() {
                 <tr className="bg-card2">
                   {[t('adm.audit.time'), t('adm.audit.user'), t('adm.audit.action'), t('adm.audit.object'), t('adm.audit.result'), t('adm.audit.ip')].map((h) => (
                     <th key={h} scope="col" className="border-b border-brd px-3 py-2 text-left">
-                      <span className="mono text-[9.5px] uppercase tracking-[0.1em] text-t3">{h}</span>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-t3">{h}</span>
                     </th>
                   ))}
                 </tr>
@@ -430,7 +489,7 @@ export default function AdminPage() {
                 {AUDIT_LOG.map((row, i) => (
                   <tr key={i} className="border-b border-brd last:border-b-0">
                     <td className="mono px-3 py-2.5 text-[11px] text-t3">{row.time}</td>
-                    <td className="px-3 py-2.5 text-[12px] font-medium text-t1">{row.user}</td>
+                    <td className="px-3 py-2.5 text-[13px] font-medium text-t1">{row.user}</td>
                     <td className="px-3 py-2.5 text-[12px] text-t2">{row.action[lang]}</td>
                     <td className="mono px-3 py-2.5 text-[11px] text-t3">{row.object}</td>
                     <td className="px-3 py-2.5">

@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { z } from 'zod';
 
 const SettingsSchema = z.object({
-  theme: z.enum(['dark', 'light', 'system']).default('dark'),
+  theme: z.enum(['dark', 'light', 'system']).default('light'),
   density: z.enum(['comfortable', 'compact']).default('comfortable'),
   lang: z.enum(['en', 'fr']).default('en'),
   chartAnimations: z.boolean().default(true),

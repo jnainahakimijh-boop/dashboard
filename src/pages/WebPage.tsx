@@ -9,7 +9,8 @@ import { fmtCompact, fmtInt, fmtPct } from '@/lib/format';
 import { KpiCard, KpiGrid } from '@/components/kpi/KpiCard';
 import { TrendChart, type TrendPoint } from '@/components/charts/TrendChart';
 import { Sparkline } from '@/components/charts/Sparkline';
-import { Card, EmptyState, MiniBar, Segmented, InfoTip } from '@/components/ui/primitives';
+import { computeInsights } from '@/lib/insights';
+import { Badge, Card, EmptyState, MiniBar, Segmented, InfoTip } from '@/components/ui/primitives';
 import { DataTable, Num, type Column } from '@/components/tables/DataTable';
 
 type WebMetric = 'sessions' | 'users' | 'engagementRate' | 'conversions';
@@ -60,7 +61,7 @@ export default function WebPage() {
   }));
 
   const chCols: Column<ChRow>[] = [
-    { id: 'name', header: t('filters.channel'), cell: (r) => <span className="text-[12px] font-medium text-t1">{r.name}</span>, sortValue: (r) => r.name, searchText: (r) => r.name },
+    { id: 'name', header: t('filters.channel'), cell: (r) => <span className="text-[13px] font-medium text-t1">{r.name}</span>, sortValue: (r) => r.name, searchText: (r) => r.name },
     { id: 'sessions', header: t('kpi.sessions'), align: 'right', sortValue: (r) => r.t.sessions, cell: (r) => <Num strong>{fmtInt(r.t.sessions, lang)}</Num> },
     { id: 'users', header: t('kpi.users'), align: 'right', sortValue: (r) => r.t.users, cell: (r) => <Num>{fmtInt(r.t.users, lang)}</Num> },
     {
@@ -145,10 +146,16 @@ export default function WebPage() {
   /* new vs returning */
   const newShare = ratio(now.newUsers, now.users);
 
+  /* optimisation opportunities — web-relevant computed insights */
+  const webOpportunities = useMemo(
+    () => computeInsights(q).filter((i) => i.category === 'conversion' || i.category === 'risk' || i.category === 'growth').slice(0, 3),
+    [q],
+  );
+
   return (
-    <div className="flex flex-col gap-[var(--gap-grid)] p-4 md:p-6">
+    <div className="flex flex-col gap-[var(--gap-grid)] p-5 md:p-8">
       <KpiGrid>
-        {WEB_KPIS.map((k) => (
+        {WEB_KPIS.filter((k) => k.id !== 'engagedSessions').map((k) => (
           <KpiCard
             key={k.id}
             label={t(k.labelKey)}
@@ -224,7 +231,7 @@ export default function WebPage() {
                 return (
                   <div key={d.id} className="rounded-[10px] border border-brd bg-card2 p-3">
                     <div className="mb-2 flex items-baseline justify-between">
-                      <span className="text-[12.5px] font-medium text-t1">{d.name}</span>
+                      <span className="text-[13px] font-medium text-t1">{d.name}</span>
                       <span className="mono text-[11px] text-t2 tnum">
                         {fmtCompact(d.t.sessions, lang)} {t('kpi.sessions').toLowerCase()}
                       </span>
@@ -232,11 +239,11 @@ export default function WebPage() {
                     <MiniBar pct={(d.t.sessions / maxSessions) * 100} color="var(--ch-2)" />
                     <div className="mt-2.5 grid grid-cols-2 gap-2">
                       <div>
-                        <div className="eyebrow text-[8.5px]">{t('kpi.engagementRate')}</div>
+                        <div className="eyebrow text-[10px]">{t('kpi.engagementRate')}</div>
                         <div className="mono mt-0.5 text-[13px] font-medium text-t1 tnum">{fmtPct(er, lang)}</div>
                       </div>
                       <div>
-                        <div className="eyebrow text-[8.5px]">{t('kpi.cvr')}</div>
+                        <div className="eyebrow text-[10px]">{t('kpi.cvr')}</div>
                         <div className="mono mt-0.5 text-[13px] font-medium text-t1 tnum">{fmtPct(cv, lang)}</div>
                       </div>
                     </div>
@@ -251,7 +258,7 @@ export default function WebPage() {
 
         <Card title={t('web.newVsReturning')} subtitle={t('web.newVsReturningSub')} right={<InfoTip text={t('def.newUsers')} />}>
           {now.users > 0 && newShare !== null ? (
-            <div className="flex h-full flex-col justify-center gap-4 py-2">
+            <div className="flex h-full flex-col justify-start gap-5 pt-2">
               <div className="flex h-7 w-full overflow-hidden rounded-[6px]" role="img" aria-label={`${t('web.newUsers')}: ${fmtPct(newShare * 100, lang)} — ${t('web.returningUsers')}: ${fmtPct((1 - newShare) * 100, lang)}`}>
                 <div style={{ width: `${newShare * 100}%`, background: 'var(--ch-3)' }} />
                 <div style={{ width: `${(1 - newShare) * 100}%`, background: 'var(--ch-2)' }} />
@@ -260,18 +267,18 @@ export default function WebPage() {
                 <div className="rounded-[10px] border border-brd bg-card2 p-3">
                   <div className="flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-sm" style={{ background: 'var(--ch-3)' }} aria-hidden />
-                    <span className="eyebrow text-[8.5px]">{t('web.newUsers')}</span>
+                    <span className="eyebrow text-[10px]">{t('web.newUsers')}</span>
                   </div>
                   <div className="mono mt-1 text-[19px] font-semibold text-t1 tnum">{fmtCompact(now.newUsers, lang)}</div>
-                  <div className="mono text-[10.5px] text-t3 tnum">{fmtPct(newShare * 100, lang)} {t('misc.of')} {fmtCompact(now.users, lang)}</div>
+                  <div className="mono text-[11.5px] text-t3 tnum">{fmtPct(newShare * 100, lang)} {t('misc.of')} {fmtCompact(now.users, lang)}</div>
                 </div>
                 <div className="rounded-[10px] border border-brd bg-card2 p-3">
                   <div className="flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-sm" style={{ background: 'var(--ch-2)' }} aria-hidden />
-                    <span className="eyebrow text-[8.5px]">{t('web.returningUsers')}</span>
+                    <span className="eyebrow text-[10px]">{t('web.returningUsers')}</span>
                   </div>
                   <div className="mono mt-1 text-[19px] font-semibold text-t1 tnum">{fmtCompact(now.users - now.newUsers, lang)}</div>
-                  <div className="mono text-[10.5px] text-t3 tnum">{fmtPct((1 - newShare) * 100, lang)} {t('misc.of')} {fmtCompact(now.users, lang)}</div>
+                  <div className="mono text-[11.5px] text-t3 tnum">{fmtPct((1 - newShare) * 100, lang)} {t('misc.of')} {fmtCompact(now.users, lang)}</div>
                 </div>
               </div>
             </div>
@@ -280,6 +287,25 @@ export default function WebPage() {
           )}
         </Card>
       </div>
+
+      <Card title={t('web.opportunities')} subtitle={t('web.opportunitiesSub')}>
+        {webOpportunities.length > 0 ? (
+          <div className="grid gap-[var(--gap-grid)] md:grid-cols-2 xl:grid-cols-3">
+            {webOpportunities.map((ins) => (
+              <article key={ins.id} className="flex flex-col gap-2.5 rounded-[12px] border border-brd bg-card2 p-4">
+                <Badge tone={ins.category === 'conversion' || ins.category === 'risk' ? 'neg' : 'pos'}>
+                  {t(ins.category === 'conversion' ? 'ins.cat.conversion' : ins.category === 'risk' ? 'ins.cat.risk' : 'ins.cat.growth').toUpperCase()}
+                </Badge>
+                <h3 className="m-0 text-[14px] font-semibold leading-snug text-t1">{ins.signal[lang]}</h3>
+                <p className="m-0 text-[12.5px] leading-relaxed text-t2">{ins.action[lang]}</p>
+                <p className="mono m-0 mt-auto border-t border-brd pt-2.5 text-[11.5px] leading-relaxed text-t3 tnum">{ins.evidence[lang]}</p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <EmptyState title={t('state.empty.title')} body={t('state.empty.body')} />
+        )}
+      </Card>
     </div>
   );
 }

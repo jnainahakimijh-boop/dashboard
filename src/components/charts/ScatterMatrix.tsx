@@ -34,7 +34,7 @@ export function classifyQuadrant(p: { x: number; y: number }, mx: number, my: nu
 
 /** Reach × engagement performance matrix with median-split quadrants.
  *  Medians are computed from the plotted points, not invented. */
-export function ScatterMatrix({ points, lang, copy, xLabel, yLabel, zLabel, ariaLabel, height = 320 }: { points: MatrixPoint[]; lang: Locale; copy: Record<Quadrant, QuadrantCopy>; xLabel: string; yLabel: string; zLabel: string; ariaLabel: string; height?: number }) {
+export function ScatterMatrix({ points, lang, copy, xLabel, yLabel, zLabel, ariaLabel, height = 340 }: { points: MatrixPoint[]; lang: Locale; copy: Record<Quadrant, QuadrantCopy>; xLabel: string; yLabel: string; zLabel: string; ariaLabel: string; height?: number }) {
   const theme = useChartTheme();
   const mx = useMemo(() => median(points.map((p) => p.x)), [points]);
   const my = useMemo(() => median(points.map((p) => p.y)), [points]);
@@ -84,10 +84,10 @@ export function ScatterMatrix({ points, lang, copy, xLabel, yLabel, zLabel, aria
                 const p = payload[0].payload as MatrixPoint;
                 const q = classifyQuadrant(p, mx, my);
                 return (
-                  <div className="max-w-64 rounded-[10px] border border-brds bg-card2 p-3 shadow-[var(--shadow-pop)]">
-                    <div className="mb-1 text-[12px] font-semibold leading-snug text-t1">{p.label}</div>
-                    {p.sub && <div className="mono mb-1.5 text-[9.5px] tracking-[0.06em] text-t3">{p.sub}</div>}
-                    <dl className="m-0 grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 text-[11px]">
+                  <div className="max-w-68 rounded-[11px] border border-brd bg-card p-3.5 shadow-[var(--shadow-pop)]">
+                    <div className="mb-1 text-[13px] font-semibold leading-snug text-t1">{p.label}</div>
+                    {p.sub && <div className="mono mb-1.5 text-[10.5px] tracking-[0.05em] text-t3">{p.sub}</div>}
+                    <dl className="m-0 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-[12px]">
                       <dt className="text-t3">{xLabel}</dt>
                       <dd className="mono m-0 text-right text-t1 tnum">{fmtInt(p.x, lang)}</dd>
                       <dt className="text-t3">{yLabel}</dt>
@@ -95,7 +95,7 @@ export function ScatterMatrix({ points, lang, copy, xLabel, yLabel, zLabel, aria
                       <dt className="text-t3">{zLabel}</dt>
                       <dd className="mono m-0 text-right text-t1 tnum">{fmtInt(p.z, lang)}</dd>
                     </dl>
-                    <div className="mt-1.5 border-t border-brd pt-1.5 text-[10.5px]" style={{ color: quadColor[q] }}>
+                    <div className="mt-2 border-t border-brd pt-2 text-[11.5px] font-medium" style={{ color: quadColor[q] }}>
                       {copy[q].label} — {copy[q].desc}
                     </div>
                   </div>
@@ -115,8 +115,8 @@ export function ScatterMatrix({ points, lang, copy, xLabel, yLabel, zLabel, aria
           <div key={q} className="flex items-start gap-1.5">
             <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ background: quadColor[q] }} aria-hidden />
             <div>
-              <div className="text-[11px] font-medium text-t1">{copy[q].label}</div>
-              <div className="text-[10px] leading-snug text-t3">{copy[q].desc}</div>
+              <div className="text-[12.5px] font-semibold text-t1">{copy[q].label}</div>
+              <div className="text-[11.5px] leading-snug text-t3">{copy[q].desc}</div>
             </div>
           </div>
         ))}

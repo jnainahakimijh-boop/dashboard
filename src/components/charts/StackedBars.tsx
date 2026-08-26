@@ -25,20 +25,20 @@ export function StackedBars({ data, series, lang, ariaLabel, height = 260 }: { d
                 if (!active || !payload?.length) return null;
                 const total = payload.reduce((s, p) => s + (typeof p.value === 'number' ? p.value : 0), 0);
                 return (
-                  <div className="rounded-[10px] border border-brds bg-card2 p-3 shadow-[var(--shadow-pop)]">
-                    <div className="mono mb-1.5 text-[10px] tracking-[0.08em] text-t3">{label}</div>
+                  <div className="rounded-[11px] border border-brd bg-card p-3.5 shadow-[var(--shadow-pop)]">
+                    <div className="mono mb-2 text-[11px] tracking-[0.06em] text-t3">{label}</div>
                     {payload.map((p) => (
                       <div key={String(p.dataKey)} className="flex items-center justify-between gap-6 py-px">
-                        <span className="flex items-center gap-1.5 text-[11.5px] text-t2">
+                        <span className="flex items-center gap-1.5 text-[12.5px] text-t2">
                           <span className="h-2 w-2 rounded-sm" style={{ background: p.color }} aria-hidden />
                           {p.name}
                         </span>
-                        <span className="mono text-[11.5px] text-t1 tnum">{fmtInt(typeof p.value === 'number' ? p.value : null, lang)}</span>
+                        <span className="mono text-[12.5px] text-t1 tnum">{fmtInt(typeof p.value === 'number' ? p.value : null, lang)}</span>
                       </div>
                     ))}
                     <div className="mt-1.5 flex items-center justify-between gap-6 border-t border-brd pt-1.5">
-                      <span className="text-[11px] text-t3">Total</span>
-                      <span className="mono text-[11.5px] font-semibold text-t1 tnum">{fmtInt(total, lang)}</span>
+                      <span className="text-[12px] text-t3">Total</span>
+                      <span className="mono text-[12.5px] font-semibold text-t1 tnum">{fmtInt(total, lang)}</span>
                     </div>
                   </div>
                 );
@@ -46,7 +46,7 @@ export function StackedBars({ data, series, lang, ariaLabel, height = 260 }: { d
             />
             <Legend
               iconSize={8}
-              wrapperStyle={{ fontSize: 11, color: 'var(--text-2)' }}
+              wrapperStyle={{ fontSize: 12.5, color: 'var(--text-2)' }}
               formatter={(value: string) => <span style={{ color: 'var(--text-2)' }}>{value}</span>}
             />
             {series.map((s, i) => (

@@ -1,141 +1,173 @@
 @import 'tailwindcss';
 
 /* ================================================================
-   DESIGN TOKENS — Digital Performance
-   Dark is the flagship theme; light is fully supported.
+   DESIGN TOKENS — Digital Performance · Intelligence Platform
+   Light executive workspace is the flagship theme: light analytical
+   canvas, dark navy navigation, crimson interaction accent, white
+   cards. Dark mode is a secondary, navy-family variant.
    All colours flow from these variables — no scattered hex codes.
    ================================================================ */
 
 :root,
-:root[data-theme='dark'] {
-  color-scheme: dark;
-
-  /* Surfaces */
-  --bg-app: #141414;
-  --bg-side: #161616;
-  --bg-card: #1c1c1c;
-  --bg-card2: #202020;
-  --bg-inset: #181818;
-  --bg-hover: rgba(255, 255, 255, 0.04);
-  --bg-active: rgba(255, 255, 255, 0.07);
-
-  /* Borders */
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.16);
-
-  /* Text */
-  --text-1: #f4f4f1;
-  --text-2: rgba(255, 255, 255, 0.62);
-  --text-3: rgba(255, 255, 255, 0.4);
-
-  /* Accent — used sparingly: selection, focus, primary interaction */
-  --accent: #e6ff55;
-  --accent-ink: #131503; /* text placed on accent */
-  --accent-soft: rgba(230, 255, 85, 0.09);
-  --accent-border: rgba(230, 255, 85, 0.28);
-  --accent-text: #dcf65a; /* accent used as text on dark surfaces */
-
-  /* Semantic status */
-  --pos: #4fd68c;
-  --pos-soft: rgba(79, 214, 140, 0.1);
-  --neg: #ff7a76;
-  --neg-soft: rgba(255, 122, 118, 0.1);
-  --warn: #f2b34c;
-  --warn-soft: rgba(242, 179, 76, 0.11);
-  --info: #7da9ff;
-  --info-soft: rgba(125, 169, 255, 0.11);
-  --neutral: rgba(255, 255, 255, 0.45);
-
-  /* Chart palette — restrained, professional. Series 1 is the accent. */
-  --ch-1: #e6ff55;
-  --ch-2: #7da9ff;
-  --ch-3: #58d6c5;
-  --ch-4: #c79bff;
-  --ch-5: #f5b95c;
-  --ch-6: #f58fa9;
-  --ch-compare: rgba(255, 255, 255, 0.34);
-  --ch-grid: rgba(255, 255, 255, 0.06);
-  --ch-axis: rgba(255, 255, 255, 0.38);
-
-  /* Effects */
-  --shadow-pop: 0 12px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
-  --ring: 0 0 0 2px var(--bg-app), 0 0 0 4px var(--accent);
-
-  /* Density (overridden by [data-density='compact']) */
-  --pad-card: 18px;
-  --gap-grid: 14px;
-  --row-h: 44px;
-}
-
 :root[data-theme='light'] {
   color-scheme: light;
 
-  --bg-app: #f4f4f2;
-  --bg-side: #ececea;
+  /* Application surfaces */
+  --bg-app: #f4f7fb;
   --bg-card: #ffffff;
-  --bg-card2: #f7f7f5;
-  --bg-inset: #f0f0ee;
-  --bg-hover: rgba(20, 20, 20, 0.04);
-  --bg-active: rgba(20, 20, 20, 0.07);
+  --bg-card2: #f8fafc;
+  --bg-inset: #f1f5f9;
+  --bg-hover: rgba(15, 31, 56, 0.045);
+  --bg-active: rgba(15, 31, 56, 0.08);
 
-  --border: rgba(20, 20, 20, 0.1);
-  --border-strong: rgba(20, 20, 20, 0.2);
+  /* Sidebar / navigation (dark navy in both themes) */
+  --side-bg: #0b172a;
+  --side-bg2: #101f35;
+  --side-border: rgba(255, 255, 255, 0.09);
+  --side-t1: #f3f6fa;
+  --side-t2: rgba(226, 234, 245, 0.66);
+  --side-t3: rgba(226, 234, 245, 0.42);
+  --side-hover: rgba(255, 255, 255, 0.06);
+  --side-active: rgba(255, 255, 255, 0.1);
 
-  --text-1: #171717;
-  --text-2: rgba(23, 23, 23, 0.64);
-  --text-3: rgba(23, 23, 23, 0.42);
+  /* Borders */
+  --border: #dfe6ef;
+  --border-strong: #c3cfdd;
 
-  --accent: #dbf23e;
-  --accent-ink: #1c2003;
-  --accent-soft: rgba(163, 189, 12, 0.13);
-  --accent-border: rgba(140, 163, 8, 0.4);
-  --accent-text: #6a7d05;
+  /* Text — deep navy / slate */
+  --text-1: #0f1f38;
+  --text-2: #46586f;
+  --text-3: #7b8a9d;
 
-  --pos: #158a52;
-  --pos-soft: rgba(21, 138, 82, 0.1);
-  --neg: #d13f3a;
-  --neg-soft: rgba(209, 63, 58, 0.09);
-  --warn: #b0700e;
-  --warn-soft: rgba(176, 112, 14, 0.11);
-  --info: #2e63cf;
-  --info-soft: rgba(46, 99, 207, 0.09);
-  --neutral: rgba(23, 23, 23, 0.45);
+  /* Accent — sophisticated crimson, used for interaction & selection */
+  --accent: #e11d2e;
+  --accent-strong: #c11223;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(225, 29, 46, 0.07);
+  --accent-border: rgba(225, 29, 46, 0.28);
+  --accent-text: #cb1626;
 
-  --ch-1: #94ad00;
-  --ch-2: #3b6fe0;
-  --ch-3: #17967f;
-  --ch-4: #7a5ae0;
-  --ch-5: #d98716;
-  --ch-6: #d45c80;
-  --ch-compare: rgba(23, 23, 23, 0.35);
-  --ch-grid: rgba(23, 23, 23, 0.07);
-  --ch-axis: rgba(23, 23, 23, 0.45);
+  /* Semantic status */
+  --pos: #12805c;
+  --pos-soft: rgba(18, 128, 92, 0.09);
+  --neg: #d92d20;
+  --neg-soft: rgba(217, 45, 32, 0.08);
+  --warn: #b25e09;
+  --warn-soft: rgba(178, 94, 9, 0.1);
+  --info: #175cd3;
+  --info-soft: rgba(23, 92, 211, 0.08);
+  --neutral: #64748b;
 
-  --shadow-pop: 0 12px 40px rgba(20, 20, 20, 0.14), 0 2px 8px rgba(20, 20, 20, 0.08);
-  --ring: 0 0 0 2px var(--bg-app), 0 0 0 4px #8ca308;
+  /* Chart palette — calm, professional. Blue leads; crimson is reserved
+     for interaction and negative emphasis, not the default series. */
+  --ch-1: #2563eb;
+  --ch-2: #0e9384;
+  --ch-3: #7a5af8;
+  --ch-4: #e88b0e;
+  --ch-5: #dd2590;
+  --ch-6: #4e5ba6;
+  --ch-compare: #94a3b8;
+  --ch-grid: #e8edf4;
+  --ch-axis: #8494a7;
+
+  /* Effects */
+  --shadow-card: 0 1px 2px rgba(15, 31, 56, 0.05), 0 4px 16px rgba(15, 31, 56, 0.05);
+  --shadow-pop: 0 4px 12px rgba(15, 31, 56, 0.1), 0 16px 48px rgba(15, 31, 56, 0.16);
+  --ring: 0 0 0 2px var(--bg-app), 0 0 0 4px var(--accent);
+
+  /* Density (overridden by [data-density='compact']) */
+  --pad-card: 22px;
+  --gap-grid: 18px;
+  --row-h: 46px;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg-app: #0d1424;
+  --bg-card: #131c30;
+  --bg-card2: #182236;
+  --bg-inset: #101a2c;
+  --bg-hover: rgba(226, 234, 245, 0.05);
+  --bg-active: rgba(226, 234, 245, 0.09);
+
+  --side-bg: #0a1220;
+  --side-bg2: #0e1828;
+  --side-border: rgba(255, 255, 255, 0.08);
+  --side-t1: #f3f6fa;
+  --side-t2: rgba(226, 234, 245, 0.64);
+  --side-t3: rgba(226, 234, 245, 0.4);
+  --side-hover: rgba(255, 255, 255, 0.06);
+  --side-active: rgba(255, 255, 255, 0.1);
+
+  --border: rgba(226, 234, 245, 0.1);
+  --border-strong: rgba(226, 234, 245, 0.22);
+
+  --text-1: #eef2f8;
+  --text-2: rgba(226, 234, 245, 0.68);
+  --text-3: rgba(226, 234, 245, 0.44);
+
+  --accent: #f24150;
+  --accent-strong: #e11d2e;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(242, 65, 80, 0.11);
+  --accent-border: rgba(242, 65, 80, 0.35);
+  --accent-text: #ff6b77;
+
+  --pos: #3ccb8f;
+  --pos-soft: rgba(60, 203, 143, 0.11);
+  --neg: #ff6b60;
+  --neg-soft: rgba(255, 107, 96, 0.11);
+  --warn: #f0a35e;
+  --warn-soft: rgba(240, 163, 94, 0.12);
+  --info: #6ea8ff;
+  --info-soft: rgba(110, 168, 255, 0.11);
+  --neutral: rgba(226, 234, 245, 0.5);
+
+  --ch-1: #6ea8ff;
+  --ch-2: #43c6b4;
+  --ch-3: #a48afb;
+  --ch-4: #f0a35e;
+  --ch-5: #f477b8;
+  --ch-6: #8d9bd6;
+  --ch-compare: rgba(226, 234, 245, 0.38);
+  --ch-grid: rgba(226, 234, 245, 0.08);
+  --ch-axis: rgba(226, 234, 245, 0.45);
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.25);
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
+  --ring: 0 0 0 2px var(--bg-app), 0 0 0 4px var(--accent);
 }
 
 :root[data-density='compact'] {
-  --pad-card: 13px;
-  --gap-grid: 10px;
-  --row-h: 36px;
+  --pad-card: 16px;
+  --gap-grid: 13px;
+  --row-h: 38px;
 }
 
-/* Map tokens into Tailwind utility namespace */
+/* Map tokens into the Tailwind utility namespace */
 @theme inline {
   --color-app: var(--bg-app);
-  --color-side: var(--bg-side);
   --color-card: var(--bg-card);
   --color-card2: var(--bg-card2);
   --color-inset: var(--bg-inset);
   --color-hov: var(--bg-hover);
   --color-act: var(--bg-active);
+  --color-side: var(--side-bg);
+  --color-side2: var(--side-bg2);
+  --color-sbrd: var(--side-border);
+  --color-st1: var(--side-t1);
+  --color-st2: var(--side-t2);
+  --color-st3: var(--side-t3);
+  --color-shov: var(--side-hover);
+  --color-sact: var(--side-active);
   --color-brd: var(--border);
   --color-brds: var(--border-strong);
   --color-t1: var(--text-1);
   --color-t2: var(--text-2);
   --color-t3: var(--text-3);
   --color-acc: var(--accent);
+  --color-accs: var(--accent-strong);
   --color-accink: var(--accent-ink);
   --color-accsoft: var(--accent-soft);
   --color-accbrd: var(--accent-border);
@@ -170,8 +202,8 @@ body {
   margin: 0;
   background: var(--bg-app);
   color: var(--text-1);
-  font-size: 13.5px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -187,7 +219,6 @@ body {
   color: var(--accent-ink);
 }
 
-/* Slim scrollbars in keeping with the dense aesthetic */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
@@ -204,11 +235,12 @@ body {
   background: transparent;
 }
 
-/* Small uppercase mono eyebrow — signature label style */
+/* Small uppercase analytical label — Inter, not mono, so it reads as a
+   product label rather than terminal output */
 .eyebrow {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.13em;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--text-3);
 }
@@ -234,8 +266,8 @@ body {
   }
 }
 .skeleton {
-  background: var(--bg-card2);
-  border-radius: 6px;
+  background: var(--bg-inset);
+  border-radius: 8px;
   animation: dp-shimmer 1.4s ease-in-out infinite;
 }
 
@@ -301,10 +333,10 @@ body {
   }
 }
 
-/* Recharts overrides to match the token system */
+/* Recharts defaults aligned with the token system */
 .recharts-cartesian-axis-tick text {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   fill: var(--ch-axis);
 }
 .recharts-tooltip-cursor {

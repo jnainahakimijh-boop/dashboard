@@ -83,16 +83,16 @@ export function DataTable<T>({ columns, rows, rowKey, defaultSort, searchable = 
                 }}
                 placeholder={t('tbl.searchPlaceholder')}
                 aria-label={t('tbl.searchPlaceholder')}
-                className="h-8 w-48 rounded-[9px] border border-brd bg-inset pl-8 pr-2.5 text-[12px] text-t1 placeholder:text-t3 focus:border-brds"
+                className="h-9 w-56 rounded-[9px] border border-brd bg-card pl-8 pr-2.5 text-[13px] text-t1 placeholder:text-t3 focus:border-brds"
               />
             </label>
           )}
           {toolbar}
-          <span className="mono ml-auto text-[10px] tracking-[0.08em] text-t3">{t('tbl.rows', { n: sorted.length })}</span>
+          <span className="mono ml-auto text-[11px] tracking-[0.06em] text-t3">{t('tbl.rows', { n: sorted.length })}</span>
         </div>
       )}
       <div className="overflow-x-auto overscroll-x-contain rounded-[10px] border border-brd" style={maxHeight ? { maxHeight, overflowY: 'auto' } : undefined}>
-        <table className="w-full border-collapse text-[12px]" aria-label={ariaLabel}>
+        <table className="w-full border-collapse text-[13px]" aria-label={ariaLabel}>
           <thead className="sticky top-0 z-10">
             <tr className="bg-card2">
               {columns.map((c) => {
@@ -105,14 +105,14 @@ export function DataTable<T>({ columns, rows, rowKey, defaultSort, searchable = 
                     title={c.headerTitle}
                     style={c.width ? { width: c.width } : undefined}
                     aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}
-                    className={clsx('border-b border-brd px-3 py-2 align-middle', c.align === 'right' ? 'text-right' : 'text-left')}
+                    className={clsx('border-b border-brd px-3.5 py-2.5 align-middle', c.align === 'right' ? 'text-right' : 'text-left')}
                   >
                     {sortable ? (
                       <button
                         type="button"
                         onClick={() => toggleSort(c.id)}
                         className={clsx(
-                          'mono inline-flex items-center gap-1 text-[9.5px] uppercase tracking-[0.1em] hover:text-t1',
+                          'inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.06em] hover:text-t1',
                           active ? 'text-t1' : 'text-t3',
                           c.align === 'right' && 'flex-row-reverse',
                         )}
@@ -121,7 +121,7 @@ export function DataTable<T>({ columns, rows, rowKey, defaultSort, searchable = 
                         {active && (sort!.dir === 'asc' ? <ArrowUp size={10} aria-hidden /> : <ArrowDown size={10} aria-hidden />)}
                       </button>
                     ) : (
-                      <span className="mono text-[9.5px] uppercase tracking-[0.1em] text-t3">{c.header}</span>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-t3">{c.header}</span>
                     )}
                   </th>
                 );
@@ -147,7 +147,7 @@ export function DataTable<T>({ columns, rows, rowKey, defaultSort, searchable = 
                 className={clsx('border-b border-brd last:border-b-0', onRowClick && 'cursor-pointer transition-colors hover:bg-hov focus-visible:bg-hov')}
               >
                 {columns.map((c) => (
-                  <td key={c.id} className={clsx('px-3 py-2 align-middle', c.align === 'right' ? 'text-right' : 'text-left')}>
+                  <td key={c.id} className={clsx('px-3.5 py-2.5 align-middle', c.align === 'right' ? 'text-right' : 'text-left')}>
                     {c.cell(r)}
                   </td>
                 ))}
@@ -159,13 +159,13 @@ export function DataTable<T>({ columns, rows, rowKey, defaultSort, searchable = 
       </div>
       {pageSize > 0 && pageCount > 1 && (
         <div className="mt-2.5 flex items-center justify-end gap-2">
-          <span className="mono text-[10px] tracking-[0.08em] text-t3">{t('tbl.page', { a: safePage + 1, b: pageCount })}</span>
+          <span className="mono text-[11.5px] tracking-[0.04em] text-t3">{t('tbl.page', { a: safePage + 1, b: pageCount })}</span>
           <button
             type="button"
             aria-label={t('tbl.prev')}
             disabled={safePage === 0}
             onClick={() => setPage((p) => Math.max(0, p - 1))}
-            className="rounded-[7px] border border-brd p-1 text-t2 hover:bg-hov disabled:opacity-35"
+            className="rounded-[8px] border border-brd p-1.5 text-t2 hover:bg-hov disabled:opacity-35"
           >
             <ChevronLeft size={13} aria-hidden />
           </button>
@@ -174,7 +174,7 @@ export function DataTable<T>({ columns, rows, rowKey, defaultSort, searchable = 
             aria-label={t('tbl.next')}
             disabled={safePage >= pageCount - 1}
             onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-            className="rounded-[7px] border border-brd p-1 text-t2 hover:bg-hov disabled:opacity-35"
+            className="rounded-[8px] border border-brd p-1.5 text-t2 hover:bg-hov disabled:opacity-35"
           >
             <ChevronRight size={13} aria-hidden />
           </button>
@@ -186,5 +186,5 @@ export function DataTable<T>({ columns, rows, rowKey, defaultSort, searchable = 
 
 /** Right-aligned numeric cell with tabular numerals */
 export function Num({ children, strong = false, muted = false }: { children: ReactNode; strong?: boolean; muted?: boolean }) {
-  return <span className={clsx('mono whitespace-nowrap text-[11.5px] tnum', strong ? 'font-semibold text-t1' : muted ? 'text-t3' : 'text-t2')}>{children}</span>;
+  return <span className={clsx('mono whitespace-nowrap text-[12.5px] tnum', strong ? 'font-semibold text-t1' : muted ? 'text-t3' : 'text-t2')}>{children}</span>;
 }

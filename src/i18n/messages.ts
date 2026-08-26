@@ -9,18 +9,18 @@ export const en = {
   'app.demoTip': 'Values shown in this prototype are synthetic and are provided only to demonstrate product behaviour.',
 
   /* nav */
-  'nav.analyse': 'Analyse',
+  'nav.performance': 'Performance',
   'nav.intelligence': 'Intelligence',
-  'nav.data': 'Data',
-  'nav.system': 'System',
+  'nav.governance': 'Governance',
   'nav.overview': 'Overview',
   'nav.web': 'Web Performance',
   'nav.social': 'Social Media',
-  'nav.content': 'Content',
+  'nav.content': 'Content Performance',
   'nav.campaigns': 'Campaigns',
   'nav.journey': 'Conversion Journey',
   'nav.audience': 'Audience & Markets',
   'nav.insights': 'Insights',
+  'nav.insightsRecs': 'Insights & Recommendations',
   'nav.recommendations': 'Recommendations',
   'nav.reports': 'Reports',
   'nav.dq': 'Data Quality',
@@ -118,9 +118,9 @@ export const en = {
 
   /* overview */
   'ov.eyebrow': 'Performance / Overview',
-  'ov.title': 'Digital Performance',
-  'ov.subtitle': 'Global digital channel performance and decision signals',
-  'ov.trend': 'Performance over time',
+  'ov.title': 'Executive Overview',
+  'ov.subtitle': 'Cross-channel performance, movements and priorities',
+  'ov.trend': 'Performance evolution',
   'ov.trendSub': 'Daily values with comparison period',
   'ov.channels': 'Channel contribution',
   'ov.channelsSub': 'Ranked by selected metric, with share of total',
@@ -165,7 +165,7 @@ export const en = {
 
   /* content */
   'cnt.eyebrow': 'Performance / Content',
-  'cnt.title': 'Content Intelligence',
+  'cnt.title': 'Content Performance',
   'cnt.subtitle': 'What to publish more of — by topic, format and platform',
   'cnt.topics': 'Topic performance',
   'cnt.topicsSub': 'Ranked by engagement with volume and conversions',
@@ -481,6 +481,69 @@ export const en = {
   'misc.notAvailable': 'Not available',
   'misc.perDay': 'per day',
   'misc.days': 'days',
+
+  /* toolbar */
+  'toolbar.period': 'Analysis period',
+  'toolbar.compare': 'Compare against',
+
+  /* login */
+  'login.secure': 'Secure access',
+  'login.subtitle': 'Sign in to your analytics workspace.',
+  'login.username': 'Username',
+  'login.password': 'Password',
+  'login.signin': 'Sign in',
+  'login.demo': 'Prototype access',
+  'login.demoCreds': 'Demo credentials: admin / admin',
+  'login.fill': 'Fill demo credentials',
+  'login.error': 'Invalid credentials. This prototype accepts admin / admin.',
+  'login.sso': 'Production deployments authenticate through your organisation\u2019s single sign-on (SSO).',
+  'login.f1': 'Cross-channel analytics',
+  'login.f1d': 'Web, social, content and campaigns in one governed workspace.',
+  'login.f2': 'Decision intelligence',
+  'login.f2d': 'Computed signals and prioritised recommendations.',
+  'login.f3': 'Governed metrics',
+  'login.f3d': 'One formula, one owner, one source per KPI.',
+  'login.f4': 'Data you can trust',
+  'login.f4d': 'Freshness, completeness and reconciliation checks.',
+
+  /* insights tabs */
+  'ins.tab.insights': 'Insights',
+  'ins.tab.recs': 'Recommendations',
+
+  /* web extras */
+  'web.opportunities': 'Optimisation opportunities',
+  'web.opportunitiesSub': 'Computed from this selection \u2014 conversion and device signals',
+
+  /* social extras */
+  'soc.attribution': 'Social-to-web attribution',
+  'soc.attributionSub': 'From platform clicks to on-site outcomes \u2014 modelled at aggregate level',
+  'soc.webSessions': 'Social-channel sessions',
+  'soc.webConversions': 'Attributed conversions',
+
+  /* content extras */
+  'cnt.top': 'Top-performing content',
+  'cnt.topSub': 'High reach and high engagement \u2014 amplify these',
+  'cnt.needsWork': 'Needs optimisation',
+  'cnt.needsWorkSub': 'High reach but under-engaging \u2014 rework the creative',
+  'cnt.actions': 'Recommended content actions',
+
+  /* admin overview */
+  'adm.tab.overview': 'Overview',
+  'adm.activeUsers': 'Active users',
+  'adm.connectedSources': 'Connected sources',
+  'adm.dataHealth': 'Data health',
+  'adm.pendingInvites': 'Pending invitations',
+  'adm.recentActivity': 'Recent activity',
+  'adm.systemHealth': 'System health',
+  'adm.viewAudit': 'View full audit log',
+
+  /* settings sections */
+  'set.section.appearance': 'Appearance',
+  'set.section.language': 'Language & Region',
+  'set.section.notifications': 'Notifications',
+  'set.section.dashboard': 'Dashboard',
+  'set.section.exports': 'Exports',
+  'set.section.account': 'Account',
 } as const;
 
 export type MsgKey = keyof typeof en;
@@ -491,18 +554,18 @@ export const fr: Record<MsgKey, string> = {
   'app.demo': 'DONNÉES DÉMO',
   'app.demoTip': 'Les valeurs affichées dans ce prototype sont synthétiques et servent uniquement à démontrer le comportement du produit.',
 
-  'nav.analyse': 'Analyse',
+  'nav.performance': 'Performance',
   'nav.intelligence': 'Intelligence',
-  'nav.data': 'Données',
-  'nav.system': 'Système',
+  'nav.governance': 'Gouvernance',
   'nav.overview': "Vue d'ensemble",
   'nav.web': 'Performance web',
   'nav.social': 'Réseaux sociaux',
-  'nav.content': 'Contenus',
+  'nav.content': 'Performance des contenus',
   'nav.campaigns': 'Campagnes',
   'nav.journey': 'Parcours de conversion',
   'nav.audience': 'Audience & marchés',
   'nav.insights': 'Insights',
+  'nav.insightsRecs': 'Insights & recommandations',
   'nav.recommendations': 'Recommandations',
   'nav.reports': 'Rapports',
   'nav.dq': 'Qualité des données',
@@ -594,9 +657,9 @@ export const fr: Record<MsgKey, string> = {
   'def.spend': 'Dépenses média des campagnes payantes (EUR).',
 
   'ov.eyebrow': "Performance / Vue d'ensemble",
-  'ov.title': 'Digital Performance',
-  'ov.subtitle': 'Performance globale des canaux digitaux et signaux de décision',
-  'ov.trend': 'Performance dans le temps',
+  'ov.title': "Vue d'ensemble exécutive",
+  'ov.subtitle': 'Performance cross-canal, mouvements et priorités',
+  'ov.trend': 'Évolution de la performance',
   'ov.trendSub': 'Valeurs quotidiennes avec période de comparaison',
   'ov.channels': 'Contribution des canaux',
   'ov.channelsSub': 'Classés par la métrique sélectionnée, avec part du total',
@@ -638,7 +701,7 @@ export const fr: Record<MsgKey, string> = {
   'soc.gapNote': 'X compte {n} jour(s) sans données collectées sur cette période — affiché comme un vide, pas comme zéro.',
 
   'cnt.eyebrow': 'Performance / Contenus',
-  'cnt.title': 'Intelligence des contenus',
+  'cnt.title': 'Performance des contenus',
   'cnt.subtitle': 'Quoi publier davantage — par sujet, format et plateforme',
   'cnt.topics': 'Performance par thématique',
   'cnt.topicsSub': "Classées par engagement avec volume et conversions",
@@ -940,4 +1003,59 @@ export const fr: Record<MsgKey, string> = {
   'misc.notAvailable': 'Indisponible',
   'misc.perDay': 'par jour',
   'misc.days': 'jours',
+
+  'toolbar.period': "Période d'analyse",
+  'toolbar.compare': 'Comparer à',
+
+  'login.secure': 'Accès sécurisé',
+  'login.subtitle': 'Connectez-vous à votre espace analytique.',
+  'login.username': "Identifiant",
+  'login.password': 'Mot de passe',
+  'login.signin': 'Se connecter',
+  'login.demo': 'Accès prototype',
+  'login.demoCreds': 'Identifiants démo : admin / admin',
+  'login.fill': 'Remplir les identifiants démo',
+  'login.error': 'Identifiants invalides. Ce prototype accepte admin / admin.',
+  'login.sso': "En production, l'authentification passe par le SSO de votre organisation.",
+  'login.f1': 'Analytique cross-canal',
+  'login.f1d': 'Web, social, contenus et campagnes dans un espace gouverné.',
+  'login.f2': 'Intelligence de décision',
+  'login.f2d': 'Signaux calculés et recommandations priorisées.',
+  'login.f3': 'Métriques gouvernées',
+  'login.f3d': 'Une formule, un responsable, une source par KPI.',
+  'login.f4': 'Des données fiables',
+  'login.f4d': 'Contrôles de fraîcheur, complétude et réconciliation.',
+
+  'ins.tab.insights': 'Insights',
+  'ins.tab.recs': 'Recommandations',
+
+  'web.opportunities': "Opportunités d'optimisation",
+  'web.opportunitiesSub': 'Calculées sur cette sélection — signaux de conversion et d’appareil',
+
+  'soc.attribution': 'Attribution social → web',
+  'soc.attributionSub': 'Des clics plateformes aux résultats sur site — modélisée au niveau agrégé',
+  'soc.webSessions': 'Sessions du canal social',
+  'soc.webConversions': 'Conversions attribuées',
+
+  'cnt.top': 'Contenus les plus performants',
+  'cnt.topSub': 'Forte portée et fort engagement — à amplifier',
+  'cnt.needsWork': 'À optimiser',
+  'cnt.needsWorkSub': 'Forte portée mais engagement faible — retravailler la créa',
+  'cnt.actions': 'Actions contenus recommandées',
+
+  'adm.tab.overview': "Vue d'ensemble",
+  'adm.activeUsers': 'Utilisateurs actifs',
+  'adm.connectedSources': 'Sources connectées',
+  'adm.dataHealth': 'Santé des données',
+  'adm.pendingInvites': 'Invitations en attente',
+  'adm.recentActivity': 'Activité récente',
+  'adm.systemHealth': 'Santé du système',
+  'adm.viewAudit': "Voir le journal d'audit complet",
+
+  'set.section.appearance': 'Apparence',
+  'set.section.language': 'Langue & région',
+  'set.section.notifications': 'Notifications',
+  'set.section.dashboard': 'Tableau de bord',
+  'set.section.exports': 'Exports',
+  'set.section.account': 'Compte',
 };

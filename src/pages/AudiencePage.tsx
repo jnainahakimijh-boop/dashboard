@@ -89,7 +89,7 @@ export default function AudiencePage() {
     {
       id: 'name',
       header: t(mode === 'country' ? 'aud.byCountry' : mode === 'region' ? 'aud.byRegion' : 'aud.byLanguage'),
-      cell: (r) => <span className="text-[12px] font-medium text-t1">{r.name}</span>,
+      cell: (r) => <span className="text-[13px] font-medium text-t1">{r.name}</span>,
       sortValue: (r) => r.name,
       searchText: (r) => r.name,
     },
@@ -168,7 +168,7 @@ export default function AudiencePage() {
     .sort((a, b) => b.value - a.value);
 
   return (
-    <div className="flex flex-col gap-[var(--gap-grid)] p-4 md:p-6">
+    <div className="flex flex-col gap-[var(--gap-grid)] p-5 md:p-8">
       <Card
         title={t('aud.markets')}
         subtitle={t('aud.marketsSub')}
@@ -208,8 +208,8 @@ export default function AudiencePage() {
               .slice(0, 4)
               .map((r, i) => (
                 <li key={r.id} className="flex items-center gap-3 rounded-[10px] border border-brd bg-card2 px-3 py-2.5">
-                  <span className="mono text-[10px] text-t3 tnum">{String(i + 1).padStart(2, '0')}</span>
-                  <span className="flex-1 text-[12.5px] font-medium text-t1">{r.name}</span>
+                  <span className="mono text-[11px] text-t3 tnum">{String(i + 1).padStart(2, '0')}</span>
+                  <span className="flex-1 text-[13px] font-medium text-t1">{r.name}</span>
                   <MiniBar pct={r.opportunity ?? 0} className="max-w-28" color="var(--ch-4)" />
                   <Num strong>{r.opportunity}</Num>
                 </li>

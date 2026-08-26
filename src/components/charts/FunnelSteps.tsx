@@ -24,24 +24,24 @@ export function FunnelSteps({ stages, lang, ariaLabel }: { stages: FunnelStageVi
             {i > 0 && (
               <div className="flex items-center gap-1.5 py-0.5 pl-1">
                 <ArrowRight size={11} className="text-t3" aria-hidden />
-                <span className="mono text-[10.5px] text-t2 tnum">{stepRate === null ? '—' : fmtPct(stepRate * 100, lang)}</span>
-                <span className="mono text-[9.5px] text-t3">
+                <span className="mono text-[12px] font-medium text-t2 tnum">{stepRate === null ? '—' : fmtPct(stepRate * 100, lang)}</span>
+                <span className="text-[11px] text-t3">
                   {stages[i - 1].label} → {s.label}
                 </span>
               </div>
             )}
             <div className="grid grid-cols-[minmax(110px,150px)_1fr_auto] items-center gap-3">
               <div className="min-w-0">
-                <div className="truncate text-[12px] font-medium text-t1">{s.label}</div>
-                {s.desc && <div className="truncate text-[10px] text-t3">{s.desc}</div>}
+                <div className="truncate text-[13px] font-medium text-t1">{s.label}</div>
+                {s.desc && <div className="truncate text-[11px] text-t3">{s.desc}</div>}
               </div>
-              <div className="h-[18px] overflow-hidden rounded-[4px] bg-hov">
+              <div className="h-[20px] overflow-hidden rounded-[5px] bg-inset">
                 <div
                   className="h-full rounded-[4px]"
-                  style={{ width: `${widthPct}%`, background: 'var(--ch-1)', opacity: 0.28 + 0.72 * (i / Math.max(stages.length - 1, 1)) }}
+                  style={{ width: `${widthPct}%`, background: 'var(--ch-1)', opacity: 0.35 + 0.65 * (i / Math.max(stages.length - 1, 1)) }}
                 />
               </div>
-              <span className="mono w-16 text-right text-[12px] font-medium text-t1 tnum">{fmtInt(s.value, lang)}</span>
+              <span className="mono w-18 text-right text-[13px] font-semibold text-t1 tnum">{fmtInt(s.value, lang)}</span>
             </div>
           </Fragment>
         );

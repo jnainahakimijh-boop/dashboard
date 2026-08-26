@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { PLATFORMS } from '@/data/dimensions';
 import { useFilters } from '@/state/FiltersContext';
 import { useI18n } from '@/i18n';
-import { contentItems, prevQ, socialBy, socialMissingDays, socialTotals, toQ, type SocialTotals } from '@/lib/aggregate';
-import { ctr, engagementRateSocial } from '@/lib/metrics';
+import { contentItems, prevQ, socialBy, socialMissingDays, socialTotals, toQ, webBy, type SocialTotals, type WebTotals } from '@/lib/aggregate';
+import { ctr, cvr, engagementRateSocial, ratio } from '@/lib/metrics';
 import { SOCIAL_KPIS, kpiDelta } from '@/lib/kpis';
 import { fmtCompact, fmtDayFull, fmtInt, fmtPct, fmtSignedInt } from '@/lib/format';
 import { KpiCard, KpiGrid } from '@/components/kpi/KpiCard';
@@ -33,6 +33,9 @@ export default function SocialPage() {
 
   const [metric, setMetric] = useState<SocMetric>('impressions');
 
+  /* social-to-web attribution: platform clicks → social-channel sessions → conversions */
+  const socialWeb = (webBy({ ...q, channels: ['social'], devices: [] }, 'channel') as Map<string, WebTotals>).get('social');
+
   // a day with no collected rows at all renders as a gap (null), never zero
   const seriesOf = (map: Map<string | number, SocialTotals>, range: { from: number; to: number }): (number | null)[] => {
     const out: (number | null)[] = [];
@@ -56,7 +59,7 @@ export default function SocialPage() {
   }
   const pfRows: PfRow[] = PLATFORMS.filter((pf) => byPlatform.has(pf.id)).map((pf) => ({ id: pf.id, name: pf.name, t: byPlatform.get(pf.id)! }));
   const pfCols: Column<PfRow>[] = [
-    { id: 'name', header: t('filters.platform'), cell: (r) => <span className="text-[12px] font-medium text-t1">{r.name}</span>, sortValue: (r) => r.name, searchText: (r) => r.name },
+    { id: 'name', header: t('filters.platform'), cell: (r) => <span className="text-[13px] font-medium text-t1">{r.name}</span>, sortValue: (r) => r.name, searchText: (r) => r.name },
     { id: 'impressions', header: t('kpi.impressions'), align: 'right', sortValue: (r) => r.t.impressions, cell: (r) => <Num strong>{fmtCompact(r.t.impressions, lang)}</Num> },
     { id: 'reach', header: t('kpi.reach'), align: 'right', sortValue: (r) => r.t.reach, cell: (r) => <Num>{fmtCompact(r.t.reach, lang)}</Num> },
     { id: 'eng', header: t('kpi.engagements'), align: 'right', sortValue: (r) => r.t.engagements, cell: (r) => <Num>{fmtCompact(r.t.engagements, lang)}</Num> },
@@ -106,7 +109,7 @@ export default function SocialPage() {
       id: 'title',
       header: t('nav.content'),
       cell: (r) => (
-        <span className="block max-w-64 truncate text-[12px] font-medium text-t1" title={lang === 'fr' ? r.titleFr : r.title}>
+        <span className="block max-w-64 truncate text-[13px] font-medium text-t1" title={lang === 'fr' ? r.titleFr : r.title}>
           {lang === 'fr' ? r.titleFr : r.title}
         </span>
       ),
@@ -133,7 +136,7 @@ export default function SocialPage() {
   ];
 
   return (
-    <div className="flex flex-col gap-[var(--gap-grid)] p-4 md:p-6">
+    <div className="flex flex-col gap-[var(--gap-grid)] p-5 md:p-8">
       {missingX.length > 0 && (
         <div role="status" className="flex items-center gap-2.5 rounded-[11px] border border-warn/30 bg-warnsoft px-3.5 py-2.5 text-[12px] text-t1">
           <AlertTriangle size={14} className="shrink-0 text-warn" aria-hidden />
@@ -226,6 +229,36 @@ export default function SocialPage() {
           )}
         </Card>
       </div>
+
+      <Card title={t('soc.attribution')} subtitle={t('soc.attributionSub')} right={<Badge tone="warn" title={t('jny.attributionNote')}>{t('jny.modelled').toUpperCase()}</Badge>}>
+        {now.clicks > 0 && socialWeb ? (
+          <div className="flex flex-col items-stretch gap-3 md:flex-row md:items-center">
+            {[
+              { label: t('kpi.clicks'), value: fmtCompact(now.clicks, lang), sub: t('soc.platforms') },
+              { rate: ratio(socialWeb.sessions, now.clicks) },
+              { label: t('soc.webSessions'), value: fmtCompact(socialWeb.sessions, lang), sub: t('nav.web') },
+              { rate: ratio(socialWeb.conversions, socialWeb.sessions) },
+              { label: t('soc.webConversions'), value: fmtCompact(socialWeb.conversions, lang), sub: `CVR ${fmtPct(cvr(socialWeb.conversions, socialWeb.sessions), lang)}` },
+            ].map((step, i) =>
+              'rate' in step ? (
+                <div key={i} className="flex shrink-0 items-center justify-center gap-1.5 md:flex-col md:gap-0.5">
+                  <ArrowRight size={15} className="rotate-90 text-t3 md:rotate-0" aria-hidden />
+                  <span className="mono text-[12px] font-medium text-t2 tnum">{step.rate === null || step.rate === undefined ? '—' : fmtPct(step.rate * 100, lang)}</span>
+                </div>
+              ) : (
+                <div key={i} className="flex-1 rounded-[12px] border border-brd bg-card2 p-4 text-center">
+                  <div className="eyebrow text-[10.5px]">{step.label}</div>
+                  <div className="mt-1.5 text-[24px] font-bold leading-none tracking-[-0.02em] text-t1 tnum">{step.value}</div>
+                  <div className="mt-1.5 text-[11.5px] text-t3">{step.sub}</div>
+                </div>
+              ),
+            )}
+          </div>
+        ) : (
+          <EmptyState title={t('state.empty.title')} body={t('state.empty.body')} />
+        )}
+        <p className="m-0 mt-3.5 text-[11.5px] leading-relaxed text-t3">{t('jny.attributionNote')}</p>
+      </Card>
     </div>
   );
 }
