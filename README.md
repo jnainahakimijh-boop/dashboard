@@ -1,99 +1,69 @@
-# Digital Performance — Intelligence Platform
+# Veolia Digital Performance
 
-An enterprise digital-analytics platform demo: web, social, content, campaign and
-journey performance with a computed intelligence layer (insights, recommendations),
-data-quality governance, KPI catalogue, settings and administration.
+A Communication & Marketing Intelligence platform covering web, social media,
+Employee Advocacy, content, SEO, AI Search/AEO, campaigns, conversion journey and
+market performance, with a computed intelligence layer (signals, recommendations),
+data-quality governance, a KPI catalogue, personal settings and a Back Office.
 
-**All data is synthetic** (deterministic, seeded) and clearly labelled `DEMO DATA`
-in the product. The dataset exists to demonstrate product behaviour — every figure
-on every page is computed from it, never hard-coded.
+This repository **is** the deployment folder. It is a static site: drag it onto
+[Netlify Drop](https://app.netlify.com/drop) and it runs. There is no build step,
+no server, no environment variables and no external CDN dependency at run time.
 
-## Run
+```
+index.html      application shell, VDS design tokens, Tailwind source
+src/            pages, components, data generator, metric libraries
+vendor/         pinned browser runtime (React, Router, Recharts, Lucide, Tailwind)
+_redirects      SPA fallback for deep links
+_headers        security headers and cache policy
+```
+
+## Running it locally
+
+Any static file server works, as long as unknown paths fall back to `index.html`:
 
 ```bash
-npm install
-npm run dev        # dev server
-npm run build      # production build (includes typecheck)
-npm run preview    # serve the production build
-npm test           # data-accuracy test suite (vitest)
+npx serve -s .          # or python3 -m http.server, with a rewrite rule
 ```
 
-## Stack
+Prototype sign-in: `veolia-demo` / `VeoliaDemo#2026`. The Veolia SSO button runs a
+prototype simulation until `sso-config.js` is filled in with an authorised OIDC
+application (Authorization Code + PKCE, no client secret in the browser).
 
-React 18 · TypeScript (strict) · Vite · Tailwind CSS 4 (token-driven) ·
-Recharts · react-router · date-fns · zod · lucide-react · Vitest.
-Fonts are self-hosted (Inter Variable + IBM Plex Mono via Fontsource).
+## How the platform is organised
 
-## Architecture
+Navigation is grouped by the decision the user is making — Executive, Channel
+performance, Conversion & audience, Intelligence, Data & governance, System — and
+every analytical page follows the same numbered reading order:
 
+| Step | Question | Typical content |
+| --- | --- | --- |
+| 1 | What is happening | primary KPIs vs the comparison period |
+| 2 | How is it evolving | one metric at a time, one unit per axis |
+| 3 | Where is it happening | channel, platform, market, device, content |
+| 4 | Why is it happening | diagnostics that explain the movement |
+| 5 | What should we do | risks, opportunities, the action queue |
+
+## Data
+
+All figures are synthetic and **deterministic** — regenerating produces the same
+numbers, so demos and screenshots stay reproducible. Every value on every page is
+computed from the dataset; nothing is hard-coded.
+
+Metric relationships follow real analytics rules, and those rules are asserted in
+`src/lib/dataIntegrity.js`: reach never exceeds impressions, clicks never exceed
+impressions, sessions never exceed clicks, engaged sessions never exceed sessions,
+conversions never exceed sessions, landing-page sessions reconcile with the web
+total per day and market, branded plus non-branded splits sum to the total, and
+video milestones decrease monotonically.
+
+AI Search & AEO figures are prototype data and are labelled as such in the product.
+
+## Verifying a change
+
+The `tools/` folder is not part of the deployment and is not required to run the
+site. To check a change locally you need Node 18+ and `esbuild` + `playwright-core`:
+
+```bash
+node tools/syntax-check.mjs .    # parse every module, resolve every local import
+node tools/data-check.mjs .      # run the dataset invariants
 ```
-src/
-  data/            seeded deterministic dataset generator + dimension catalogues
-  lib/
-    metrics.ts     central metric formulas (null-safe: no NaN/Infinity ever)
-    aggregate.ts   memoised aggregation selectors — all pages read through these
-    insights.ts    rule-based insight engine (computed evidence, EN/FR copy)
-    recommendations.ts  backlog derived from insights + standing items
-    dataQuality.ts real checks executed against the dataset at load
-    format.ts      locale-aware formatters (en-GB / fr-FR), "—" for invalid input
-    kpis.ts        KPI registry: value, format and delta semantics per metric
-    export.ts      self-describing CSV export with methodology
-  state/           Settings (persisted, zod-validated), Filters (URL-synced), Toasts
-  i18n/            EN/FR dictionaries — no copy hard-coded in components
-  components/      layout shell, charts, tables, filters, KPI cards, primitives
-  pages/           one focused page per route (14 routes)
-```
-
-## Data & metric integrity rules
-
-- Derived metrics are always computed from source values:
-  `CTR = clicks / impressions × 100`, `CVR = conversions / sessions × 100`,
-  `CPA = spend / conversions`, `ER(web) = engaged / sessions × 100`, etc.
-- Zero denominators render `—` (with an explanatory tooltip where relevant),
-  never `NaN` / `Infinity`.
-- Rate comparisons are expressed in **percentage points**; absolute metrics in
-  relative %.
-- Generator invariants (tested): `users ≤ sessions`, `conversions ≤ engaged ≤
-  sessions`, `clicks ≤ impressions`, `engagements ≤ impressions`, campaign
-  `conversions ≤ sessions ≤ clicks ≤ impressions`.
-- Funnels are monotonic by construction and by test.
-- Missing data stays missing: the X connector has a simulated 3-day outage —
-  charts show gaps, the Data Quality page reports it, totals are footnoted.
-
-### Documented attribution rules
-
-1. Web **Social** channel sessions are modelled from social platform clicks
-   (~82% click-through), so social clicks and social-channel sessions reconcile.
-2. **Campaign** delivery is a subset of the **Paid Media** channel
-   (paid sessions = campaign sessions + always-on base).
-3. Landing-page sessions are a distribution of web sessions per market/day —
-   page totals reconcile with web totals (tested, <1% rounding divergence).
-4. The journey/funnel views are scoped to paid & social and labelled
-   deterministic vs **modelled** per stage.
-
-## Tests
-
-`npm test` validates: metric formulas, zero-denominator safety, delta semantics
-(pp vs relative), formatter output, every generator invariant across all rows,
-funnel monotonicity under varied filters, aggregation reconciliation
-(channels/markets/pages/campaigns), filter recalculation (subset + partition),
-deterministic regeneration, and edge cases (planned campaign with no delivery,
-impossible filter combinations).
-
-## Feature notes
-
-- **Design**: light executive workspace (`#F4F7FB` canvas, white cards) with a
-  dark navy sidebar (`#0B172A`) and a crimson interaction accent (`#E11D2E`).
-  Light is the flagship theme; a navy-family dark theme and system mode are
-  available in Settings.
-- **Login**: neutral demo authentication (`admin` / `admin`, clearly labelled);
-  production deployments would use SSO.
-- **Filters** are global, URL-synced (shareable views) and genuinely recompute
-  every aggregate. Dimensions that don't apply to a page are visibly dimmed.
-- **Saved views** persist locally and are exposed in the toolbar and Reports.
-- **Command palette** (`⌘K` / `Ctrl+K`) searches pages, actions, campaigns,
-  landing pages, KPIs, markets and content.
-- **EN/FR** via dictionaries; language, theme, density and preferences persist.
-- Accessibility: semantic HTML, keyboard-navigable controls, aria labels on
-  icon-only buttons, chart descriptions, non-colour delta indicators (arrows),
-  `prefers-reduced-motion` respected.

@@ -1,0 +1,20 @@
+VEOLIA SSO — PROTOTYPE + OPTIONAL REAL OIDC HOOK
+
+DEFAULT NETLIFY DROP BEHAVIOUR
+The "Continue with Veolia SSO" button is a working prototype simulation. It signs the demo user into the dashboard without requiring Netlify Functions, environment variables or corporate credentials.
+
+OPTIONAL REAL SSO
+The static bundle includes sso-config.js. If the authorised Veolia identity team provides an SPA/OIDC application registration, fill in:
+
+window.VEOLIA_SSO_CONFIG = {
+  authorizeUrl: 'AUTHORISED_AUTHORIZE_ENDPOINT',
+  tokenUrl: 'AUTHORISED_TOKEN_ENDPOINT',
+  clientId: 'AUTHORISED_SPA_CLIENT_ID',
+  redirectUri: 'https://YOUR-SITE.netlify.app/',
+  scope: 'openid profile email',
+  logoutUrl: 'OPTIONAL_LOGOUT_ENDPOINT'
+};
+
+The client implements Authorization Code + PKCE. Do NOT put a client secret in sso-config.js or anywhere in the browser bundle.
+
+For a real internal production deployment, confirm the redirect URI, allowed origins/CORS, tenant policy, group/role claims, session policy and logout behaviour with Veolia identity/security teams.

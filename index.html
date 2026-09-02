@@ -1,27 +1,312 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Digital Performance — Intelligence Platform. Demo environment with synthetic data." />
-    <title>Digital Performance · Intelligence Platform</title>
-    <script>
-      // Apply persisted theme before first paint to avoid a flash.
-      try {
-        var s = JSON.parse(localStorage.getItem('dp.settings') || '{}');
-        var mode = s.theme || 'light';
-        if (mode === 'system') {
-          mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        }
-        document.documentElement.dataset.theme = mode;
-      } catch (e) {
-        document.documentElement.dataset.theme = 'light';
-      }
-    </script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#ffffff" />
+<title>Veolia Digital Performance</title>
+<link rel="icon" href="/veolia-mark.png" />
+<!-- Runtime libraries are served from this deployment folder, not a public CDN:
+     the package stays self-contained on Netlify Drop and behind corporate proxies. -->
+<script src="/vendor/tailwind-browser.js"></script>
+<script type="importmap">{"imports":{"react":"/vendor/react.js","react/jsx-runtime":"/vendor/react-jsx-runtime.js","react-dom":"/vendor/react-dom.js","react-dom/client":"/vendor/react-dom-client.js","react-router-dom":"/vendor/react-router-dom.js","recharts":"/vendor/recharts.js","lucide-react":"/vendor/lucide-react.js","clsx":"/vendor/clsx.js","zod":"/vendor/zod.js"}}</script>
+<link rel="modulepreload" href="/src/main.js" />
+<link rel="modulepreload" href="/vendor/react.js" />
+<link rel="modulepreload" href="/vendor/react-dom.js" />
+<style type="text/tailwindcss">
+
+
+/* ================================================================
+   DIGITAL PERFORMANCE — VDS / SecureGPT-inspired design system
+   Neutral product identity, with the visual language of the supplied
+   SecureGPT reference: Noto Sans, VDS colour tokens, compact radii,
+   light surfaces, restrained elevation, and red interaction.
+   ================================================================ */
+
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --vds-black: #000000;
+  --vds-white: #ffffff;
+  --vds-red: #ee0000;
+  --vds-orange: #ff6900;
+  --vds-yellow: #ffd616;
+  --vds-green: #78be21;
+  --vds-turquoise: #05c3dd;
+  --vds-marine: #002d62;
+  --vds-purple: #772583;
+  --vds-grey-01: #fcfcfc;
+  --vds-grey-02: #f2f1f9;
+  --vds-grey-03: #e9e6f4;
+  --vds-grey-04: #e0ddee;
+  --vds-grey-05: #d5d3e3;
+  --vds-grey-06: #c8c8da;
+  --vds-grey-07: #b8b8cb;
+  --vds-grey-08: #9897a8;
+  --vds-grey-09: #75748b;
+  --vds-grey-10: #55555a;
+  --vds-grey-11: #1c1c1f;
+
+  --bg-app: var(--vds-grey-01);
+  --bg-side: var(--vds-white);
+  --bg-card: var(--vds-white);
+  --bg-card2: var(--vds-grey-01);
+  --bg-inset: var(--vds-grey-02);
+  --bg-hover: var(--vds-grey-02);
+  --bg-active: var(--vds-grey-02);
+
+  --border: var(--vds-grey-03);
+  --border-strong: var(--vds-grey-05);
+
+  --text-1: var(--vds-grey-11);
+  --text-2: var(--vds-grey-10);
+  --text-3: var(--vds-grey-09);
+
+  --accent: var(--vds-red);
+  --accent-ink: var(--vds-white);
+  --accent-soft: #fff1f1;
+  --accent-border: #f8bcbc;
+  --accent-text: #c90000;
+
+  --pos: #00613b;
+  --pos-soft: #e9f7ef;
+  --neg: #d64309;
+  --neg-soft: #fff1eb;
+  --warn: #9d7900;
+  --warn-soft: #fff8d9;
+  --info: #0679cc;
+  --info-soft: #ebf4ff;
+  --neutral: var(--vds-grey-09);
+
+  --ch-1: var(--vds-marine);
+  --ch-2: var(--vds-turquoise);
+  --ch-3: var(--vds-red);
+  --ch-4: var(--vds-purple);
+  --ch-5: var(--vds-orange);
+  --ch-6: var(--vds-green);
+  --ch-compare: #9897a8;
+  --ch-grid: #e9e6f4;
+  --ch-axis: #75748b;
+
+  --shadow-card: none;
+  --shadow-pop: 0 8px 24px rgba(9, 8, 22, 0.15);
+  --shadow-raised: 0 4px 14px rgba(9, 8, 22, 0.12);
+  --ring: 0 0 0 2px var(--bg-card), 0 0 0 4px rgba(238, 0, 0, .42);
+
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-pill: 999px;
+
+  --pad-card: 24px;
+  --gap-grid: 16px;
+  --row-h: 46px;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg-app: #161619;
+  --bg-side: #1c1c1f;
+  --bg-card: #222226;
+  --bg-card2: #28282d;
+  --bg-inset: #303036;
+  --bg-hover: #303036;
+  --bg-active: #343439;
+  --border: #3b3b42;
+  --border-strong: #55555a;
+  --text-1: #ffffff;
+  --text-2: #d5d3e3;
+  --text-3: #9897a8;
+  --accent: #ee0000;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(238,0,0,.16);
+  --accent-border: rgba(238,0,0,.45);
+  --accent-text: #ff7777;
+  --pos: #91d54c;
+  --pos-soft: rgba(120,190,33,.14);
+  --neg: #ff8a5c;
+  --neg-soft: rgba(255,105,0,.15);
+  --warn: #f5d955;
+  --warn-soft: rgba(255,214,22,.14);
+  --info: #7fbdf0;
+  --info-soft: rgba(6,121,204,.18);
+  --neutral: #9897a8;
+  --ch-1: #8daccd;
+  --ch-2: #76dae7;
+  --ch-3: #ff6565;
+  --ch-4: #c768cf;
+  --ch-5: #ffac65;
+  --ch-6: #a9d973;
+  --ch-compare: #9897a8;
+  --ch-grid: #3b3b42;
+  --ch-axis: #b8b8cb;
+  --shadow-card: none;
+  --shadow-pop: 0 10px 30px rgba(0,0,0,.38);
+  --shadow-raised: 0 5px 16px rgba(0,0,0,.28);
+  --ring: 0 0 0 2px var(--bg-card), 0 0 0 4px rgba(238,0,0,.65);
+}
+
+:root[data-density='compact'] {
+  --pad-card: 16px;
+  --gap-grid: 12px;
+  --row-h: 40px;
+}
+
+@theme inline {
+  --color-app: var(--bg-app);
+  --color-side: var(--bg-side);
+  --color-card: var(--bg-card);
+  --color-card2: var(--bg-card2);
+  --color-inset: var(--bg-inset);
+  --color-hov: var(--bg-hover);
+  --color-act: var(--bg-active);
+  --color-brd: var(--border);
+  --color-brds: var(--border-strong);
+  --color-t1: var(--text-1);
+  --color-t2: var(--text-2);
+  --color-t3: var(--text-3);
+  --color-acc: var(--accent);
+  --color-accink: var(--accent-ink);
+  --color-accsoft: var(--accent-soft);
+  --color-accbrd: var(--accent-border);
+  --color-acctext: var(--accent-text);
+  --color-pos: var(--pos);
+  --color-possoft: var(--pos-soft);
+  --color-neg: var(--neg);
+  --color-negsoft: var(--neg-soft);
+  --color-warn: var(--warn);
+  --color-warnsoft: var(--warn-soft);
+  --color-info: var(--info);
+  --color-infosoft: var(--info-soft);
+  --color-neutral: var(--neutral);
+  --font-sans: 'Noto Sans', Arial, 'Helvetica Neue', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Noto Sans', Arial, 'Helvetica Neue', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+html { font-family: var(--font-sans); background: var(--bg-app); }
+body {
+  margin: 0;
+  background: var(--bg-app);
+  color: var(--text-1);
+  font-size: 14px;
+  line-height: 1.5715;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-variant-numeric: tabular-nums;
+}
+* { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+*:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; box-shadow: none; border-radius: var(--radius-md); }
+::selection { background: var(--accent); color: #fff; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: none;
+  color: var(--text-3);
+}
+.mono { font-family: var(--font-sans); }
+.tnum { font-variant-numeric: tabular-nums; }
+.page-shell { width: min(100%, 1600px); margin: 0 auto; padding: 24px 24px 48px; }
+.surface-card { box-shadow: var(--shadow-card); transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease; }
+.surface-card.interactive:hover,
+.surface-card.interactive:focus-within { background: var(--bg-inset); border-color: var(--border-strong); box-shadow: var(--shadow-raised); }
+
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea,
+button { font-family: var(--font-sans); }
+input:not([type='checkbox']):not([type='radio']),
+select { border-radius: var(--radius-md) !important; }
+
+@keyframes dp-shimmer { 0%,100%{opacity:.56} 50%{opacity:1} }
+.skeleton { background: var(--bg-inset); border-radius: var(--radius-md); animation: dp-shimmer 1.4s ease-in-out infinite; }
+@keyframes dp-fade-up { from{opacity:0;transform:translateY(3px)} to{opacity:1;transform:none} }
+.fade-up { animation: dp-fade-up .18s ease both; }
+@keyframes dp-drawer-in { from{transform:translateX(100%)} to{transform:none} }
+.drawer-in { animation: dp-drawer-in .2s ease both; }
+@keyframes dp-drawer-in-left { from{transform:translateX(-100%)} to{transform:none} }
+.drawer-in-left { animation: dp-drawer-in-left .2s ease both; }
+@keyframes dp-pop { from{opacity:0;transform:translateY(-2px)} to{opacity:1;transform:none} }
+.pop-in { animation: dp-pop .12s ease both; }
+
+.recharts-cartesian-axis-tick text { font-family: var(--font-sans); font-size: 12px; fill: var(--ch-axis); }
+.recharts-cartesian-grid line { stroke: var(--ch-grid); }
+.recharts-tooltip-cursor { stroke: var(--border-strong); }
+
+.filter-scroll { overscroll-behavior-x: contain; scroll-padding-inline: 12px; }
+.filter-scroll > * { scroll-margin-inline: 8px; }
+
+@media (max-width: 767px) {
+  .page-shell { padding: 16px 14px 92px; }
+  .filter-scroll button,
+  .filter-scroll select { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,*::before,*::after { animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; }
+}
+@media (prefers-contrast: more) {
+  :root,
+  :root[data-theme='light'] {
+    --border: #b8b8cb;
+    --border-strong: #75748b;
+    --text-2: #3f3f44;
+    --text-3: #55555a;
+  }
+}
+@media (forced-colors: active) {
+  *:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; box-shadow: none; }
+  .surface-card { border: 1px solid CanvasText; box-shadow: none; }
+}
+@media print {
+  body { background:#fff; color:#111; }
+  .no-print { display:none!important; }
+  .print-block { break-inside:avoid; }
+  .page-shell { max-width:none; padding:0; }
+}
+
+/* User-controlled accessibility preferences */
+:root[data-font-scale='110'] { font-size: 110%; }
+:root[data-font-scale='120'] { font-size: 120%; }
+:root[data-contrast='high'] {
+  --border: #9897a8;
+  --border-strong: #55555a;
+  --text-2: #343439;
+  --text-3: #55555a;
+}
+:root[data-theme='dark'][data-contrast='high'] {
+  --border: #75748b;
+  --border-strong: #b8b8cb;
+  --text-2: #ffffff;
+  --text-3: #d5d3e3;
+}
+</style>
+</head><body><div id="root"></div><script>
+(function(){
+  var root=document.getElementById('root');
+  var shown=false;
+  function showBootError(message){
+    if(shown||!root)return;
+    if(root.children.length>0)return;
+    shown=true;
+    var main=document.createElement('main');
+    main.style.cssText='min-height:100vh;background:#fcfcfc;padding:40px 20px;font-family:Arial,Helvetica,sans-serif;color:#1c1c1f';
+    var card=document.createElement('div');
+    card.style.cssText='max-width:720px;margin:0 auto;background:#fff;border:1px solid #e0ddee;border-radius:10px;padding:28px;box-shadow:0 12px 34px rgba(9,8,22,.08)';
+    var title=document.createElement('h1'); title.textContent='Veolia Digital Performance could not start'; title.style.cssText='font-size:22px;margin:0 0 12px';
+    var body=document.createElement('p'); body.textContent='The site was deployed, but one of the browser modules did not load. Reload once. If this remains, deploy the fixed folder again and make sure index.html is at the root of the folder you drag into Netlify.'; body.style.cssText='font-size:13px;line-height:1.6;color:#55555a';
+    var pre=document.createElement('pre'); pre.textContent=String(message||'Startup module failed to load'); pre.style.cssText='white-space:pre-wrap;overflow:auto;background:#f2f1f9;border-radius:6px;padding:12px;font-size:11px;color:#55555a';
+    card.appendChild(title); card.appendChild(body); card.appendChild(pre); main.appendChild(card); root.appendChild(main);
+  }
+  window.addEventListener('error',function(e){setTimeout(function(){showBootError(e&&e.message);},0);});
+  window.addEventListener('unhandledrejection',function(e){var r=e&&e.reason;setTimeout(function(){showBootError(r&&r.message?r.message:r);},0);});
+  setTimeout(function(){showBootError('Startup timed out while loading browser modules.');},15000);
+})();
+</script><script src="/sso-config.js"></script><script type="module" src="/src/main.js"></script></body></html>

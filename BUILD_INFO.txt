@@ -1,0 +1,38 @@
+VEOLIA DIGITAL PERFORMANCE
+Build: Information-architecture and UX polish over the Executive Compact edition
+
+Deployment      Netlify Drop compatible — static folder, no build step
+Runtime         React 18 + React Router 6 + Recharts 2, served from /vendor
+Styling         Tailwind (browser compiler) over the existing VDS design tokens
+Authentication  Prototype username/password + prototype SSO; real OIDC hook ready
+Data            Deterministic synthetic dataset, 730 daily buckets
+
+WHAT CHANGED IN THIS BUILD
+Information architecture
+- Navigation regrouped into Executive, Channel performance, Conversion &
+  audience, Intelligence, Data & governance and System.
+- Every analytical page now follows one numbered five-step hierarchy.
+- The detached "advanced analytics" strip that used to render a second page
+  shell under every route was dissolved; its panels now sit inside the page
+  section that answers the same question.
+- Insights and Recommendations merged into a single page with two views.
+
+Executive Overview
+- Rebuilt around the five steps, with a metric selector on the performance
+  trend, a quantified management-attention row, an explicit Social → website
+  journey with named step rates, and a driver table showing volume and quality.
+
+Data and correctness
+- 48 dataset invariants are asserted in src/lib/dataIntegrity.js.
+- Search position deltas are expressed in positions gained, not as a
+  percentage change of a rank.
+- Advocacy engagement rate now uses impressions as its denominator everywhere.
+
+Reliability
+- Browser runtime libraries are vendored into /vendor, so the package no longer
+  depends on a public CDN being reachable at run time.
+- Removed a legacy Back Office component that contained a JavaScript syntax
+  error, and the superseded admin page it belonged to.
+
+The Veolia design system — colours, typography, card and button styling, icon
+set, navigation language and spacing scale — is unchanged.
