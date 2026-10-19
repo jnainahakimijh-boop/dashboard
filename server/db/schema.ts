@@ -390,6 +390,10 @@ export const metricTargets = pgTable('metric_targets', {
   filters: jsonb('filters').$type<Record<string, string[]>>().notNull().default({}),
   owner: text('owner'),
   note: text('note'),
+  /** business objective the target supports */
+  objective: text('objective'),
+  /** warn when progress falls below this share of the time-proportional expectation (e.g. 0.9) */
+  warningRatio: doublePrecision('warning_ratio'),
   createdBy: uuid('created_by'),
   createdAt: createdAt(),
 });

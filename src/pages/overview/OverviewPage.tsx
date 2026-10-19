@@ -27,13 +27,14 @@ const WorldMap = lazy(() => import('@/components/charts/WorldMap'));
 /* ---------------- B. KPI cards ---------------- */
 
 interface Target {
+  id: string;
   metricId: string;
   periodStart: string;
   periodEnd: string;
   value: number;
 }
 
-function KpiGrid({ metrics }: { metrics: string[] }) {
+function KpiGrid({ metrics, title, wid = 'kpis' }: { metrics: string[]; title?: string; wid?: string }) {
   const { t, lang } = useI18n();
   const gf = useGlobalFilters();
   const nav = useNavigate();
@@ -46,11 +47,11 @@ function KpiGrid({ metrics }: { metrics: string[] }) {
   const moduleOf: Record<string, string> = { web: '/web', search: '/seo', social: '/social', ads: '/ads', geo: '/geo', forms: '/web?tab=conversions' };
   if (q.isError) return <ErrorState error={q.error} onRetry={() => q.refetch()} />;
   return (
-    <section aria-labelledby="kpis-title">
+    <section aria-labelledby={`${wid}-title`}>
       <div className="mb-3 flex items-end justify-between gap-2">
         <div>
-          <h2 id="kpis-title" className="text-[15px] font-semibold">
-            {t('overview.kpis')}
+          <h2 id={`${wid}-title`} className="text-[15px] font-semibold">
+            {title ?? t('overview.kpis')}
           </h2>
           <p className="text-[12.5px] text-t2">{t('overview.kpisHint')}</p>
         </div>
@@ -70,7 +71,7 @@ function KpiGrid({ metrics }: { metrics: string[] }) {
 
 const EVOLUTION_CHOICES = METRICS.filter((m) => !m.internal && (m.executive || ['social_engagements', 'ads_ga_sessions', 'views', 'engaged_sessions', 'social_link_clicks'].includes(m.id)) && m.agg.kind !== 'custom').map((m) => m.id);
 
-function Evolution({ initial }: { initial: string[] }) {
+function Evolution({ initial, title, wid = 'evo' }: { initial: string[]; title?: string; wid?: string }) {
   const { t, lang, L } = useI18n();
   const gf = useGlobalFilters();
   const labelOf = useMetricLabel();
@@ -88,10 +89,10 @@ function Evolution({ initial }: { initial: string[] }) {
   }, [series]);
   const compareLabel = gf.compare === 'none' ? undefined : t(gf.compare === 'yoy' ? 'common.vsYoy' : 'common.vsPrevious');
   return (
-    <Card aria-labelledby="evo-title">
+    <Card aria-labelledby={`${wid}-title`}>
       <CardHeader
-        id="evo-title"
-        title={t('overview.evolution')}
+        id={`${wid}-title`}
+        title={title ?? t('overview.evolution')}
         subtitle={t('overview.evolutionHint')}
         badges={<DataModeBadge mode={q.data?.results[0]?.meta.mode} />}
         actions={
@@ -186,7 +187,7 @@ function ChannelCard({ def }: { def: ChannelDef }) {
   );
 }
 
-function Channels() {
+function Channels({ title, wid = 'ch' }: { title?: string; wid?: string }) {
   const { t } = useI18n();
   const defs: ChannelDef[] = [
     { key: 'fr', label: t('overview.websiteFr'), metrics: ['sessions', 'key_events'], filters: { site: ['veolia-fr'] }, to: '/web' },
@@ -199,8 +200,8 @@ function Channels() {
     { key: 'ads', label: t('overview.chatgptAds'), metrics: ['ads_spend', 'ads_conversions'], filters: {}, to: '/ads' },
   ];
   return (
-    <Card aria-labelledby="ch-title">
-      <CardHeader id="ch-title" title={t('overview.channels')} subtitle={t('overview.channelsHint')} />
+    <Card aria-labelledby={`${wid}-title`}>
+      <CardHeader id={`${wid}-title`} title={title ?? t('overview.channels')} subtitle={t('overview.channelsHint')} />
       <CardBody>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {defs.map((d) => (
@@ -214,7 +215,7 @@ function Channels() {
 
 /* ---------------- E. Geography ---------------- */
 
-function Geography() {
+function Geography({ title, wid = 'geo' }: { title?: string; wid?: string }) {
   const { t, L, lang } = useI18n();
   const gf = useGlobalFilters();
   const meta = useMeta();
@@ -229,10 +230,10 @@ function Geography() {
     return { key: x.key, name: c ? L(c.name) : x.key, isoNum: c?.isoNum ?? '', value: x.value ?? 0, compare: x.compare, share: total ? (x.value ?? 0) / total : 0 };
   });
   return (
-    <Card aria-labelledby="geo-title">
+    <Card aria-labelledby={`${wid}-title`}>
       <CardHeader
-        id="geo-title"
-        title={t('overview.geography')}
+        id={`${wid}-title`}
+        title={title ?? t('overview.geography')}
         subtitle={t('overview.geographyHint')}
         badges={
           <>
@@ -295,15 +296,15 @@ interface PostRow {
   rateBasis: string;
 }
 
-function ContentSnapshot() {
+function ContentSnapshot({ title, wid = 'content' }: { title?: string; wid?: string }) {
   const { t, lang } = useI18n();
   const gf = useGlobalFilters();
   const pages = useAnalytics(spec(gf, ['sessions'], { groupBy: 'page', limit: 6 }));
   const posts = useApi<{ items: PostRow[]; mode: string }>('/api/social/posts', { ...gf.params, sort: 'engagements', pageSize: 4 });
   const r = pages.data?.results[0];
   return (
-    <Card aria-labelledby="content-title">
-      <CardHeader id="content-title" title={t('overview.contentSnapshot')} badges={<DataModeBadge mode={r?.meta.mode} />} actions={<Link to="/content" className="text-[13px] font-medium text-acctext hover:underline">{t('common.view')} →</Link>} />
+    <Card aria-labelledby={`${wid}-title`}>
+      <CardHeader id={`${wid}-title`} title={title ?? t('overview.contentSnapshot')} badges={<DataModeBadge mode={r?.meta.mode} />} actions={<Link to="/content" className="text-[13px] font-medium text-acctext hover:underline">{t('common.view')} →</Link>} />
       <CardBody className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div>
           <p className="eyebrow mb-2">{t('overview.topPages')}</p>
@@ -329,6 +330,78 @@ function ContentSnapshot() {
 }
 
 /* ---------------- G. Alerts ---------------- */
+
+/* ---------------- targets ---------------- */
+
+interface TargetFull extends Target {
+  filters: Record<string, string[]>;
+  objective: string | null;
+  warningRatio: number | null;
+}
+
+function TargetRow({ tg, asOf }: { tg: TargetFull; asOf: string }) {
+  const { t, lang } = useI18n();
+  const labelOf = useMetricLabel();
+  const def = getMetric(tg.metricId);
+  const to = tg.periodEnd < asOf ? tg.periodEnd : asOf;
+  const q = useAnalytics({ metrics: [tg.metricId], from: tg.periodStart, to, compare: 'none', filters: tg.filters });
+  const r = q.data?.results[0];
+  if (!def) return null;
+  const actual = r?.value ?? null;
+  const days = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000) + 1;
+  const elapsed = Math.min(1, Math.max(0, days(tg.periodStart, to) / days(tg.periodStart, tg.periodEnd)));
+  // cumulative indicators are compared with a time-proportional share of the target; rates and averages with the target itself
+  const cumulative = def.agg.kind === 'sum' || def.agg.kind === 'users';
+  const expected = cumulative ? tg.value * elapsed : tg.value;
+  const warn = tg.warningRatio ?? 0.9;
+  const lowerIsBetter = def.direction === 'down';
+  const ratio = actual === null || !expected ? null : lowerIsBetter ? expected / Math.max(actual, 1e-9) : actual / expected;
+  const status = ratio === null ? 'unknown' : ratio >= 1 ? 'ahead' : ratio >= warn ? 'on_track' : 'behind';
+  const progress = actual === null || !tg.value ? null : actual / tg.value;
+  return (
+    <li className="py-2.5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="text-[13.5px] font-medium">
+          {labelOf(tg.metricId)}
+          {Object.keys(tg.filters).length > 0 && <span className="ml-1 text-[12px] font-normal text-t3">({Object.values(tg.filters).flat().join(', ')})</span>}
+        </span>
+        <span className="tnum text-[13px]">
+          {formatValue(actual, def.unit, lang, { compact: true })} <span className="text-t3">/ {formatValue(tg.value, def.unit, lang, { compact: true })}</span>
+        </span>
+      </div>
+      {!lowerIsBetter && progress !== null && (
+        <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-inset" role="img" aria-label={t('common.targetProgress', { pct: formatPct(progress, lang, false) })}>
+          <div className="h-full rounded-full bg-[var(--ch-1)]" style={{ width: `${Math.min(100, progress * 100)}%` }} />
+        </div>
+      )}
+      <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-t2">
+        <Badge tone={status === 'behind' ? 'warn' : status === 'unknown' ? 'neutral' : 'pos'}>
+          {status === 'behind' ? <AlertTriangle className="size-3" aria-hidden /> : <CheckCircle2 className="size-3" aria-hidden />} {t(`overview.target_${status}`)}
+        </Badge>
+        <span className="tnum">{formatRange({ from: tg.periodStart, to: tg.periodEnd }, lang)}</span>
+        {cumulative && tg.periodEnd > asOf && <span className="tnum">· {t('overview.targetExpected', { value: formatValue(expected, def.unit, lang, { compact: true }) })}</span>}
+        {tg.objective && <span>· {tg.objective}</span>}
+        {r && <DataModeBadge mode={r.meta.mode} />}
+      </p>
+    </li>
+  );
+}
+
+function TargetsWidget({ title, wid = 'targets' }: { title?: string; wid?: string }) {
+  const { t } = useI18n();
+  const gf = useGlobalFilters();
+  const { can } = useSession();
+  const q = useApi<TargetFull[]>('/api/insights/targets');
+  const current = (q.data ?? []).filter((x) => x.periodStart <= gf.asOf && x.periodEnd >= gf.range.from).slice(0, 8);
+  return (
+    <Card aria-labelledby={`${wid}-title`}>
+      <CardHeader id={`${wid}-title`} title={title ?? t('overview.targetsTitle')} subtitle={t('overview.targetsHint')} actions={can('targets.manage') && <Link to="/admin?section=targets" className="text-[13px] font-medium text-acctext hover:underline">{t('overview.manageTargets')} →</Link>} />
+      <CardBody>
+        {q.isLoading ? <Skeleton className="h-32" /> : !current.length ? <EmptyState title={t('overview.noTargets')} /> : <ul className="flex flex-col divide-y divide-brd">{current.map((tg) => <TargetRow key={tg.id} tg={tg} asOf={gf.asOf} />)}</ul>}
+      </CardBody>
+    </Card>
+  );
+}
 
 export function AlertList({ limit = 6, compact }: { limit?: number; compact?: boolean }) {
   const { t, lang } = useI18n();
@@ -381,11 +454,11 @@ export function AlertList({ limit = 6, compact }: { limit?: number; compact?: bo
   );
 }
 
-function Alerts() {
+function Alerts({ title, wid = 'alerts' }: { title?: string; wid?: string }) {
   const { t } = useI18n();
   return (
-    <Card aria-labelledby="alerts-title">
-      <CardHeader id="alerts-title" title={t('overview.alerts')} subtitle={t('overview.alertsHint')} actions={<Link to="/insights?tab=alerts" className="text-[13px] font-medium text-acctext hover:underline">{t('common.view')} →</Link>} />
+    <Card aria-labelledby={`${wid}-title`}>
+      <CardHeader id={`${wid}-title`} title={title ?? t('overview.alerts')} subtitle={t('overview.alertsHint')} actions={<Link to="/insights?tab=alerts" className="text-[13px] font-medium text-acctext hover:underline">{t('common.view')} →</Link>} />
       <CardBody>
         <AlertList />
       </CardBody>
@@ -421,7 +494,7 @@ function SummaryList({ title, items }: { title: string; items: SummaryItem[] }) 
   );
 }
 
-export function ExecutiveSummaryCard({ metrics }: { metrics?: string[] }) {
+export function ExecutiveSummaryCard({ metrics, title, wid = 'sum' }: { metrics?: string[]; title?: string; wid?: string }) {
   const { t, lang } = useI18n();
   const gf = useGlobalFilters();
   const { can } = useSession();
@@ -430,10 +503,10 @@ export function ExecutiveSummaryCard({ metrics }: { metrics?: string[] }) {
   const q = useApi<ExecutiveSummary>('/api/insights/summary', params);
   const s = q.data;
   return (
-    <Card aria-labelledby="sum-title">
+    <Card aria-labelledby={`${wid}-title`}>
       <CardHeader
-        id="sum-title"
-        title={t('overview.summary')}
+        id={`${wid}-title`}
+        title={title ?? t('overview.summary')}
         subtitle={t('overview.summaryHint')}
         badges={s?.modes.includes('demo') ? <DataModeBadge mode="demo" /> : undefined}
         actions={
@@ -480,27 +553,36 @@ export default function OverviewPage() {
   const { can } = useSession();
   const layout: WidgetConfig[] = meta.data?.executiveLayout ?? [];
   const kpis = layout.find((w) => w.type === 'kpi_grid')?.metrics ?? [];
-  const widget = (w: WidgetConfig) => {
-    if (!w.visible) return null;
+  const content = (w: WidgetConfig) => {
+    const p = { title: w.title, wid: w.id };
     switch (w.type) {
       case 'kpi_grid':
-        return <KpiGrid key={w.id} metrics={(w.metrics ?? []).filter((m) => meta.data?.metricOverrides[m]?.enabled !== false)} />;
+        return <KpiGrid {...p} metrics={(w.metrics ?? []).filter((m) => meta.data?.metricOverrides[m]?.enabled !== false)} />;
       case 'evolution':
-        return <Evolution key={w.id} initial={w.metrics ?? ['sessions']} />;
+        return <Evolution {...p} initial={w.metrics ?? ['sessions']} />;
       case 'channels':
-        return <Channels key={w.id} />;
+        return <Channels {...p} />;
       case 'geography':
-        return <Geography key={w.id} />;
+        return <Geography {...p} />;
       case 'content_snapshot':
-        return <ContentSnapshot key={w.id} />;
+        return <ContentSnapshot {...p} />;
+      case 'targets':
+        return <TargetsWidget {...p} />;
       case 'alerts':
-        return <Alerts key={w.id} />;
+        return <Alerts {...p} />;
       case 'ai_summary':
-        return <ExecutiveSummaryCard key={w.id} metrics={kpis} />;
+        return <ExecutiveSummaryCard {...p} metrics={kpis} />;
       default:
         return null;
     }
   };
+  // widgets are laid out on a two-column grid on wide screens; "half" widgets share a row
+  const widget = (w: WidgetConfig) =>
+    w.visible ? (
+      <div key={w.id} className={clsx('min-w-0', w.size !== 'half' && 'xl:col-span-2')}>
+        {content(w)}
+      </div>
+    ) : null;
   return (
     <>
       <PageHeader
@@ -517,7 +599,7 @@ export default function OverviewPage() {
         }
       />
       <FilterToolbar />
-      <PageBody>{meta.isLoading ? <Skeleton className="h-96 w-full" /> : layout.map(widget)}</PageBody>
+      <PageBody>{meta.isLoading ? <Skeleton className="h-96 w-full" /> : <div className="grid grid-cols-1 gap-[var(--gap-grid)] xl:grid-cols-2">{layout.map(widget)}</div>}</PageBody>
     </>
   );
 }

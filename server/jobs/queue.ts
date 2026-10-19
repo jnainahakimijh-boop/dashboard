@@ -9,6 +9,7 @@ import { and, eq, lte, sql } from 'drizzle-orm';
 import type { AppContext } from '../context';
 import { jobs, reportSchedules, schedules } from '../db/schema';
 import { safeErrorMessage } from '../security/redact';
+import { systemEvent } from '../audit';
 import { nextRun, type Frequency } from './schedule';
 
 export type JobRow = typeof jobs.$inferSelect;
@@ -88,6 +89,7 @@ export class JobQueue {
         .set(retry ? { status: 'queued', runAt: new Date(Date.now() + backoff), lastError: msg, lockedAt: null, lockedBy: null } : { status: 'failed', lastError: msg, finishedAt: new Date() })
         .where(eq(jobs.id, id));
       this.app.log.warn('job failed', { type: job.type, id, attempt: job.attempts, retry, error: msg });
+      if (!retry) await systemEvent(this.app, 'error', `job:${job.type}`, `Job failed after ${job.attempts} attempt(s)`, { jobId: id, error: msg });
     } finally {
       this.running--;
     }

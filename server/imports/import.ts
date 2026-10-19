@@ -11,7 +11,7 @@ import { COUNTRIES, DEVICES, DRUPAL_FORMS, EVENTS } from '@shared/catalog';
 import { isIsoDate } from '@shared/calendar';
 import type { AppContext } from '../context';
 import { ads, dataConnections, geoMeasurements, imports, socialAccounts, websites } from '../db/schema';
-import { deleteFacts } from '../analytics/warehouse';
+import { countFacts, deleteFacts } from '../analytics/warehouse';
 import { insertFacts } from '../connectors/sync';
 import type { FactRowInput } from '../connectors/types';
 import { yesterdayParis } from '../analytics/service';
@@ -229,6 +229,11 @@ export interface ValidationResult {
   from: string | null;
   to: string | null;
   entities: string[];
+  /** schema check: columns in the file that the dataset does not use, and optional columns absent from the file */
+  schema: { unknownColumns: string[]; missingOptional: string[] };
+  /** empty cells per optional column (required columns are reported as rejected rows) */
+  missingValues: Record<string, number>;
+  duplicates: number;
 }
 
 export async function validateRows(app: AppContext, dataset: string, table: string[][]): Promise<ValidationResult> {
@@ -236,7 +241,9 @@ export async function validateRows(app: AppContext, dataset: string, table: stri
   if (!spec) throw new Error(`Unknown dataset ${dataset}`);
   const header = (table[0] ?? []).map((h) => h.trim().toLowerCase());
   const missingCols = spec.columns.filter((c) => c.required && !header.includes(c.name)).map((c) => c.name);
-  const res: ValidationResult = { accepted: [], geo: [], rejected: [], total: Math.max(0, table.length - 1), from: null, to: null, entities: [] };
+  const known_ = new Set(spec.columns.map((c) => c.name));
+  const schema = { unknownColumns: header.filter((h) => h && !known_.has(h)), missingOptional: spec.columns.filter((c) => !c.required && !header.includes(c.name) && !c.name.startsWith('event_')).map((c) => c.name) };
+  const res: ValidationResult = { accepted: [], geo: [], rejected: [], total: Math.max(0, table.length - 1), from: null, to: null, entities: [], schema, missingValues: {}, duplicates: 0 };
   if (missingCols.length) {
     res.rejected.push({ row: 1, errors: [`Missing required column(s): ${missingCols.join(', ')}`] });
     return res;
@@ -263,6 +270,7 @@ export async function validateRows(app: AppContext, dataset: string, table: stri
       const v = rec[col.name] ?? '';
       if (!v) {
         if (col.required) errors.push(`${col.name} is required`);
+        else if (header.includes(col.name)) res.missingValues[col.name] = (res.missingValues[col.name] ?? 0) + 1;
         continue;
       }
       if (col.type === 'date') {
@@ -318,7 +326,10 @@ export async function validateRows(app: AppContext, dataset: string, table: stri
       if (m.engagements === undefined) m.engagements = (m.reactions ?? 0) + (m.comments ?? 0) + (m.shares ?? 0) + (dims.platform === 'youtube' ? 0 : m.clicks ?? 0);
     }
     const key = `${day}|${JSON.stringify(dims)}`;
-    if (!errors.length && seen.has(key)) errors.push('duplicate row (same date and dimensions appear earlier in the file)');
+    if (!errors.length && seen.has(key)) {
+      errors.push('duplicate row (same date and dimensions appear earlier in the file)');
+      res.duplicates++;
+    }
     if (errors.length) {
       res.rejected.push({ row: i + 1, errors });
       continue;
@@ -333,14 +344,42 @@ export async function validateRows(app: AppContext, dataset: string, table: stri
   return res;
 }
 
-export async function runImport(app: AppContext, opts: { dataset: string; fileName: string; fileType: 'csv' | 'xlsx'; content: Buffer; replace: boolean; userId: string | null; dryRun?: boolean }) {
+export class ImportConflict extends Error {
+  constructor(
+    public existingRows: number,
+    public from: string,
+    public to: string,
+  ) {
+    super(`${existingRows} existing rows cover ${from} → ${to} for these entities. Confirm the replacement to import.`);
+  }
+}
+
+export async function runImport(app: AppContext, opts: { dataset: string; fileName: string; fileType: 'csv' | 'xlsx'; content: Buffer; replace: boolean; confirmReplace?: boolean; userId: string | null; dryRun?: boolean }) {
   const spec = IMPORT_SPECS[opts.dataset];
   if (!spec) throw new Error('Unknown dataset');
   const table = opts.fileType === 'xlsx' ? await parseXlsx(opts.content) : parseCsv(opts.content.toString('utf8'));
   if (table.length > 200_001) throw new Error('File has more than 200,000 rows; split it');
   const v = await validateRows(app, opts.dataset, table);
   const status = v.accepted.length + v.geo.length === 0 ? 'rejected' : v.rejected.length ? 'partial' : 'completed';
-  if (opts.dryRun) return { status: 'validated', total: v.total, accepted: v.accepted.length + v.geo.length, rejected: v.rejected.slice(0, 200), from: v.from, to: v.to };
+  const existingRows = v.accepted.length && v.from && v.to ? await countFacts(app.db, spec.dataset, v.from, v.to, spec.entityDim && v.entities.length ? { dim: spec.entityDim, keys: v.entities } : undefined) : 0;
+  if (opts.dryRun)
+    return {
+      status: 'validated',
+      total: v.total,
+      accepted: v.accepted.length + v.geo.length,
+      rejected: v.rejected.slice(0, 200),
+      from: v.from,
+      to: v.to,
+      entities: v.entities,
+      schema: v.schema,
+      missingValues: v.missingValues,
+      duplicates: v.duplicates,
+      existingRows,
+      mapping: spec.columns.filter((c) => c.dim || c.measure).map((c) => ({ column: c.name, target: c.dim ? `dimension:${c.dim}` : `measure:${c.measure}` })),
+      preview: v.accepted.slice(0, 5).map((r) => ({ day: r.day, dims: r.dims, measures: r.measures })),
+    };
+  // never overwrite or double-count existing data without an explicit authorisation
+  if (existingRows > 0 && !(opts.replace && opts.confirmReplace)) throw new ImportConflict(existingRows, v.from!, v.to!);
   const [imp] = await app.db
     .insert(imports)
     .values({ orgId: app.orgId, dataset: opts.dataset, fileName: opts.fileName.slice(0, 200), fileType: opts.fileType, status, rowsTotal: v.total, rowsAccepted: v.accepted.length + v.geo.length, rowsRejected: v.rejected.length, rejected: v.rejected.slice(0, 500), dateFrom: v.from, dateTo: v.to, replaceExisting: opts.replace, createdBy: opts.userId })

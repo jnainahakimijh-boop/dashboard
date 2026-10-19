@@ -368,6 +368,26 @@ describe('imports and webhooks (run last: they introduce real data)', () => {
     expect(q.results[1].meta.notes.some((n) => n.params?.reason === 'mixed_origins')).toBe(true);
   });
 
+  it('previews an import and never overwrites existing rows without explicit confirmation', async () => {
+    const csv = ['date,site,form,submissions,unexpected', '2026-10-01,veolia-fr,contact,30,x', '2026-10-03,veolia-fr,contact,5,y'].join('\n');
+    const post = async (extra: Record<string, string>) => {
+      const fd = new FormData();
+      fd.set('dataset', 'forms');
+      fd.set('file', new File([csv], 'forms2.csv', { type: 'text/csv' }));
+      for (const [k, v] of Object.entries(extra)) fd.set(k, v);
+      return http.request('/api/admin/imports', { method: 'POST', headers: { 'x-vdi-request': '1', cookie: await login(ADMIN) }, body: fd });
+    };
+    const dry = (await (await post({ dryRun: 'true' })).json()) as { existingRows: number; schema: { unknownColumns: string[] }; preview: unknown[]; mapping: unknown[] };
+    expect(dry.existingRows).toBeGreaterThan(0);
+    expect(dry.schema.unknownColumns).toContain('unexpected');
+    expect(dry.preview.length).toBe(2);
+    expect(dry.mapping.length).toBeGreaterThan(0);
+    const refused = await post({});
+    expect(refused.status).toBe(409);
+    const ok = await post({ replace: 'true', confirmReplace: 'true' });
+    expect(ok.status).toBe(201);
+  });
+
   it('refuses demo sign-in once real data is connected', async () => {
     const cfg = (await (await http.request('/api/auth/config')).json()) as { demoLogin: boolean };
     expect(cfg.demoLogin).toBe(false);

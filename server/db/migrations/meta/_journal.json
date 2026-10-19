@@ -15,6 +15,13 @@
       "when": 1792423723679,
       "tag": "0001_admin_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792424474348,
+      "tag": "0002_target_warning",
+      "breakpoints": true
     }
   ]
 }

@@ -9,6 +9,7 @@ import { ZodError } from 'zod';
 import { HttpError, clientIp, type AppContext, type HonoEnv } from './context';
 import { csrfMiddleware, rateLimit, securityHeaders, sessionMiddleware } from './auth/middleware';
 import { safeErrorMessage } from './security/redact';
+import { systemEvent } from './audit';
 import { authRoutes } from './routes/auth';
 import { metaRoutes } from './routes/meta';
 import { registerModuleRoutes } from './routes';
@@ -31,6 +32,7 @@ export function createApp(appCtx: AppContext, opts: { serveSpa?: boolean } = {})
     if (err instanceof ZodError) return c.json({ error: { message: 'Validation failed', code: 'validation', details: err.flatten() } }, 422);
     const status = (err as { status?: number }).status;
     if (status === 413) return c.json({ error: { message: 'Payload too large', code: 'too_large' } }, 413);
+    void systemEvent(appCtx, 'error', 'api', `${c.req.method} ${c.req.path} failed`, { requestId: c.get('requestId'), error: safeErrorMessage(err) });
     appCtx.log.error('unhandled error', { path: c.req.path, method: c.req.method, requestId: c.get('requestId'), err: safeErrorMessage(err), stack: appCtx.env.isProduction ? undefined : (err as Error).stack?.split('\n').slice(0, 6).join(' | ') });
     return c.json({ error: { message: 'Internal server error', code: 'internal', requestId: c.get('requestId') } }, 500);
   });

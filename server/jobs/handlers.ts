@@ -1,7 +1,7 @@
 /** Job handlers for background and scheduled work. */
 import { and, lt } from 'drizzle-orm';
 import { purgeExpiredSessions } from '../auth/session';
-import { auditLogs, jobs as jobsTable, organizations, reportRuns } from '../db/schema';
+import { auditLogs, factRows, geoMeasurements, jobs as jobsTable, organizations, reportRuns } from '../db/schema';
 import { evaluateAlertRules } from '../insights/alerts';
 import { generateRecommendations } from '../insights/recommendations';
 import { runGeoMeasurements, syncAllConnected, syncConnection } from '../connectors/sync';
@@ -26,7 +26,12 @@ export function registerJobHandlers(q: JobQueue): void {
   q.register('maintenance.cleanup', async (_job, app) => {
     await purgeExpiredSessions(app);
     const [org] = await app.db.select().from(organizations);
-    const settings = (org?.settings ?? {}) as { auditRetentionMonths?: number; reportRetentionDays?: number };
+    const settings = (org?.settings ?? {}) as { auditRetentionMonths?: number; reportRetentionDays?: number; dataRetentionMonths?: number; geoRetentionMonths?: number };
+    const monthsAgo = (m: number) => new Date(Date.now() - m * 30.44 * 86_400_000).toISOString().slice(0, 10);
+    // analytics and GEO history are only purged when an administrator has set a retention period
+    if (settings.dataRetentionMonths) await app.db.delete(factRows).where(lt(factRows.day, monthsAgo(settings.dataRetentionMonths)));
+    if (settings.geoRetentionMonths) await app.db.delete(geoMeasurements).where(lt(geoMeasurements.measuredOn, monthsAgo(settings.geoRetentionMonths)));
+    if (settings.dataRetentionMonths || settings.geoRetentionMonths) app.analytics.invalidate();
     await app.db.delete(jobsTable).where(lt(jobsTable.createdAt, new Date(Date.now() - 30 * 86_400_000)));
     await app.db.delete(reportRuns).where(lt(reportRuns.createdAt, new Date(Date.now() - (settings.reportRetentionDays ?? 180) * 86_400_000)));
     await app.db.delete(auditLogs).where(and(lt(auditLogs.createdAt, new Date(Date.now() - (settings.auditRetentionMonths ?? 24) * 30 * 86_400_000))));

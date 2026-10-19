@@ -21,6 +21,7 @@ export interface WidgetConfig {
   id: string;
   type: 'kpi_grid' | 'evolution' | 'channels' | 'geography' | 'content_snapshot' | 'alerts' | 'ai_summary' | 'targets';
   visible: boolean;
+  size?: 'full' | 'half';
   metrics?: string[];
   title?: string;
 }

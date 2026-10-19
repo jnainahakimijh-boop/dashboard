@@ -14,7 +14,8 @@ import { hashPassword, passwordPolicyError } from '../security/crypto';
 import { CONNECTORS } from '../connectors/registry';
 import { testConnection } from '../connectors/sync';
 import { warehouseTableCounts } from '../analytics/warehouse';
-import { IMPORT_SPECS, runImport, templateCsv } from '../imports/import';
+import { TABLE_SCHEMAS as TABLES } from '../analytics/tables';
+import { IMPORT_SPECS, ImportConflict, runImport, templateCsv } from '../imports/import';
 import { csvEscape } from '../reports/render';
 import { evaluateAlertRules } from '../insights/alerts';
 import { aiStatus } from '../ai/provider';
@@ -23,6 +24,17 @@ import { DEFAULT_EXECUTIVE_LAYOUT } from '../db/seed';
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const WIDGET_TYPES = ['kpi_grid', 'evolution', 'channels', 'geography', 'content_snapshot', 'alerts', 'ai_summary', 'targets'] as const;
+
+/** Dimensions a metric can be broken down or filtered by (union over its tables; intersection for ratios). */
+function metricDimensions(id: string, depth = 0): string[] {
+  const m = getMetric(id);
+  if (!m || depth > 4) return [];
+  const a = m.agg;
+  if ('tables' in a) return [...new Set(a.tables.flatMap((t) => TABLES[t]?.dims ?? []))];
+  if (a.kind === 'ratio') return metricDimensions(a.num, depth + 1).filter((d) => metricDimensions(a.den, depth + 1).includes(d));
+  if (a.kind === 'diff') return metricDimensions(a.a, depth + 1).filter((d) => metricDimensions(a.b, depth + 1).includes(d));
+  return [];
+}
 
 export function adminRoutes() {
   const r = new Hono<HonoEnv>();
@@ -198,10 +210,14 @@ export function adminRoutes() {
     const app = c.get('app');
     const conns = await app.db.select().from(s.dataConnections).orderBy(asc(s.dataConnections.provider), asc(s.dataConnections.name));
     const execs = await app.db.select().from(s.syncExecutions).orderBy(desc(s.syncExecutions.startedAt)).limit(300);
+    const [syncSchedule] = await app.db.select().from(s.schedules).where(eq(s.schedules.jobType, 'connectors.sync_all'));
     return c.json(
       conns.map(({ secretCiphertext, ...cn }) => ({
         ...cn,
         hasSecret: !!secretCiphertext,
+        // only API connections in a syncable state are picked up by the scheduled synchronisation
+        nextSyncAt: syncSchedule?.enabled && cn.mode === 'api' && CONNECTORS[cn.provider]?.sync && secretCiphertext && cn.status !== 'paused' ? syncSchedule.nextRunAt : null,
+        recordsProcessed: execs.find((e) => e.connectionId === cn.id && e.status === 'succeeded')?.rowsWritten ?? null,
         definition: CONNECTORS[cn.provider] ? { label: CONNECTORS[cn.provider].label, modes: CONNECTORS[cn.provider].modes, configFields: CONNECTORS[cn.provider].configFields, secretFields: CONNECTORS[cn.provider].secretFields, readiness: CONNECTORS[cn.provider].readiness, canSync: !!CONNECTORS[cn.provider].sync, canTest: !!CONNECTORS[cn.provider].test } : null,
         webhookPath: cn.provider === 'drupal' ? `/api/ingest/drupal/${cn.id}` : null,
         executions: execs.filter((e) => e.connectionId === cn.id).slice(0, 10),
@@ -418,7 +434,7 @@ export function adminRoutes() {
     const defs = await app.db.select().from(s.metricDefinitions);
     const [org] = await app.db.select().from(s.organizations).where(eq(s.organizations.id, app.orgId));
     return c.json({
-      metrics: METRICS.filter((m) => !m.internal).map((m) => ({ ...m, agg: { kind: m.agg.kind, ...('tables' in m.agg ? { tables: m.agg.tables } : {}), ...('num' in m.agg ? { num: m.agg.num, den: m.agg.den } : {}) }, override: defs.find((d) => d.metricId === m.id) ?? null })),
+      metrics: METRICS.filter((m) => !m.internal).map((m) => ({ ...m, agg: { kind: m.agg.kind, ...('tables' in m.agg ? { tables: m.agg.tables } : {}), ...('num' in m.agg ? { num: m.agg.num, den: m.agg.den } : {}) }, dimensions: metricDimensions(m.id), override: defs.find((d) => d.metricId === m.id) ?? null })),
       conversionEvents: (org.settings as { conversionEvents?: string[] }).conversionEvents ?? [],
       events: EVENTS.map((e) => ({ id: e.id, name: e.name, keyEvent: e.keyEvent })),
     });
@@ -552,7 +568,13 @@ export function adminRoutes() {
     if (file.size > 20 * 1024 * 1024) throw new HttpError(413, 'File too large (max 20 MB)', 'too_large');
     const content = Buffer.from(await file.arrayBuffer());
     if (ext === 'xlsx' && content.subarray(0, 2).toString('ascii') !== 'PK') throw new HttpError(422, 'The file is not a valid XLSX workbook', 'validation');
-    const res = await runImport(app, { dataset, fileName: name, fileType: ext, content, replace: String(form.replace ?? 'true') !== 'false', userId: currentUser(c).id, dryRun: String(form.dryRun ?? 'false') === 'true' });
+    let res: Awaited<ReturnType<typeof runImport>>;
+    try {
+      res = await runImport(app, { dataset, fileName: name, fileType: ext, content, replace: String(form.replace ?? 'true') !== 'false', confirmReplace: String(form.confirmReplace ?? 'false') === 'true', userId: currentUser(c).id, dryRun: String(form.dryRun ?? 'false') === 'true' });
+    } catch (e) {
+      if (e instanceof ImportConflict) throw new HttpError(409, e.message, 'replace_confirmation_required', { existingRows: e.existingRows, from: e.from, to: e.to });
+      throw e;
+    }
     await audit(c, { action: res.status === 'validated' ? 'import.validate' : 'import.run', entityType: 'import', entityId: 'id' in res ? res.id : null, details: { dataset, file: name, accepted: res.accepted, rejected: Array.isArray(res.rejected) ? res.rejected.length : res.rejected } });
     return c.json(res, 'id' in res ? 201 : 200);
   });
@@ -576,7 +598,7 @@ export function adminRoutes() {
   });
 
   /* ---------- targets ---------- */
-  const targetSchema = z.object({ metricId: z.string().refine((m) => !!getMetric(m), 'Unknown metric'), periodStart: isoDate, periodEnd: isoDate, value: z.number().finite(), filters: z.record(z.array(z.string())).default({}), owner: z.string().max(120).optional(), note: z.string().max(500).optional() });
+  const targetSchema = z.object({ metricId: z.string().refine((m) => !!getMetric(m), 'Unknown metric'), periodStart: isoDate, periodEnd: isoDate, value: z.number().finite(), filters: z.record(z.array(z.string())).default({}), owner: z.string().max(120).optional(), note: z.string().max(500).optional(), objective: z.string().max(200).optional(), warningRatio: z.number().min(0.1).max(1).nullable().optional() });
   r.get('/targets', async (c) => c.json(await c.get('app').db.select().from(s.metricTargets).orderBy(desc(s.metricTargets.periodStart))));
   r.post('/targets', requirePermission('targets.manage'), async (c) => {
     const app = c.get('app');
@@ -670,7 +692,22 @@ export function adminRoutes() {
       warehouseTableCounts(db),
     ]);
     const schedules = await db.select().from(s.schedules).orderBy(asc(s.schedules.name));
+    const failedImports = await db.select({ id: s.imports.id, dataset: s.imports.dataset, fileName: s.imports.fileName, status: s.imports.status, rowsRejected: s.imports.rowsRejected, createdAt: s.imports.createdAt }).from(s.imports).where(inArray(s.imports.status, ['rejected', 'partial'])).orderBy(desc(s.imports.createdAt)).limit(10);
+    const conns = await db.select({ name: s.dataConnections.name, status: s.dataConnections.status, lastError: s.dataConnections.lastError }).from(s.dataConnections);
+    const rateLimited = conns.filter((x) => x.lastError && /\b429\b|rate.?limit|quota/i.test(x.lastError)).map((x) => ({ name: x.name, lastError: x.lastError }));
+    let databaseBytes: number | null = null;
+    try {
+      const rows = (await db.execute(sql`select pg_database_size(current_database())::bigint as n`)) as unknown as { rows?: Array<{ n: string | number }> } | Array<{ n: string | number }>;
+      const first = Array.isArray(rows) ? rows[0] : rows.rows?.[0];
+      databaseBytes = first ? Number(first.n) : null;
+    } catch {
+      databaseBytes = null;
+    }
+    const [{ reportBytes }] = await db.select({ reportBytes: sql<number>`coalesce(sum(${s.reportRuns.sizeBytes}), 0)::bigint` }).from(s.reportRuns);
     return c.json({
+      storage: { databaseBytes, reportFilesBytes: Number(reportBytes) },
+      failedImports,
+      rateLimited,
       health: { status: 'ok', uptimeSeconds: Math.round((Date.now() - app.startedAt.getTime()) / 1000), database: app.dbh.kind, node: process.version, jobsEnabled: app.env.JOBS_ENABLED, worker: app.jobs.workerId, demoMode: ds.demoEnabled, asOf: ds.asOf },
       datasets: Object.entries(ds.tables).map(([id, t]) => ({ id, origin: t!.origin, rows: t!.table.n, coverage: t!.coverage, freshness: t!.freshness, missingEntities: t!.missingEntities ?? [] })),
       warehouseRows: counts,

@@ -37,7 +37,8 @@ export const DEFAULT_EXECUTIVE_LAYOUT = [
   { id: 'channels', type: 'channels', visible: true },
   { id: 'geography', type: 'geography', visible: true },
   { id: 'content', type: 'content_snapshot', visible: true },
-  { id: 'alerts', type: 'alerts', visible: true },
+  { id: 'alerts', type: 'alerts', visible: true, size: 'half' },
+  { id: 'targets', type: 'targets', visible: true, size: 'half' },
   { id: 'summary', type: 'ai_summary', visible: true },
 ];
 
@@ -288,7 +289,7 @@ export async function seedIfEmpty(db: DB, env: Env, log: (m: string) => void = (
   /* report templates & schedules */
   const [execTpl] = await db
     .insert(s.reportTemplates)
-    .values({ orgId, type: 'executive', name: 'Monthly executive report', config: { preset: 'prevMonth', compare: 'previous', sections: ['summary', 'kpis', 'channels', 'search', 'social', 'ads', 'geo', 'recommendations'], language: 'fr' }, createdBy: admin.id })
+    .values({ orgId, type: 'executive', name: 'Monthly executive report', config: { preset: 'prevMonth', compare: 'previous', sections: [], language: 'fr' }, createdBy: admin.id })
     .returning();
   await db.insert(s.reportTemplates).values([
     { orgId, type: 'website', name: 'Website performance — weekly', config: { preset: 'last7', compare: 'previous', sections: ['kpis', 'channels', 'pages', 'conversions', 'quality'], language: 'fr' }, createdBy: admin.id },
