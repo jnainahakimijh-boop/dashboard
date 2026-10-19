@@ -857,7 +857,7 @@ export const aiSettings = pgTable('ai_settings', {
   temperature: doublePrecision('temperature').notNull().default(0.2),
   /** hard cap on input + output tokens per calendar month; null = no cap configured */
   monthlyTokenBudget: integer('monthly_token_budget'),
-  /** AI features the organisation allows (e.g. executive_summary, recommendation_wording) */
+  /** AI features the organisation allows (currently: executive_summary) */
   allowedFeatures: jsonb('allowed_features').$type<string[]>().notNull().default(['executive_summary']),
   /** AI text is shown as a draft that a person must review before it is shared */
   requireHumanReview: boolean('require_human_review').notNull().default(true),

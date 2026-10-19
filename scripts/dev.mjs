@@ -2,7 +2,7 @@
 import { spawn } from 'node:child_process';
 
 const procs = [
-  spawn('npm', ['run', 'dev:server'], { stdio: 'inherit', shell: process.platform === 'win32' }),
+  spawn('npm', ['run', 'dev:server'], { stdio: 'inherit', shell: process.platform === 'win32', env: { ...process.env, SERVE_SPA: 'false' } }),
   spawn('npm', ['run', 'dev:web'], { stdio: 'inherit', shell: process.platform === 'win32' }),
 ];
 

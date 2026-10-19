@@ -561,3 +561,16 @@ export function SectionTitle({ children, hint }: { children: ReactNode; hint?: s
     </div>
   );
 }
+
+/** Shows an active deep-link filter (e.g. from global search) with a button to remove it. */
+export function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
+  const { t } = useI18n();
+  return (
+    <span className="mb-2 inline-flex items-center gap-1 rounded-full border border-brd bg-card2 py-0.5 pr-1 pl-2.5 text-[12.5px]">
+      {label}
+      <button type="button" onClick={onClear} className="inline-flex size-6 items-center justify-center rounded-full text-t3 hover:bg-hov hover:text-t1" aria-label={`${t('common.clear')}: ${label}`}>
+        <X className="size-3.5" aria-hidden />
+      </button>
+    </span>
+  );
+}

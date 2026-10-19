@@ -1,6 +1,7 @@
 import { Play, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useUrlParam } from '@/lib/useUrlParam';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { useApi, useMeta } from '@/api/hooks';
@@ -16,7 +17,7 @@ import { FilterToolbar } from '@/components/layout/FilterToolbar';
 import { PageBody, PageHeader } from '@/components/layout/AppShell';
 import { Grid2, KpiRow, TrendCard, useDimLabel } from '@/components/modules';
 import { DataTable } from '@/components/tables/DataTable';
-import { Badge, Button, Card, CardBody, CardHeader, Checkbox, Drawer, Field, Input, Modal, Select, Skeleton, TabPanel, Tabs, Textarea, severityTone, useToast } from '@/components/ui';
+import { Badge, Button, Card, CardBody, CardHeader, Checkbox, Drawer, Field, FilterChip, Input, Modal, Select, Skeleton, TabPanel, Tabs, Textarea, severityTone, useToast } from '@/components/ui';
 
 const TABS = ['overview', 'keywords', 'queries', 'audit', 'issues', 'competitors'] as const;
 type Tab = (typeof TABS)[number];
@@ -63,6 +64,7 @@ function Keywords() {
   const inval = useInvalidate();
   const toast = useToast();
   const [group, setGroup] = useState('');
+  const [kwFilter, clearKwFilter] = useUrlParam('q');
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ keyword: '', siteKey: 'veolia-fr', groupId: '', targetUrl: '', brand: false });
   const groups = useApi<Array<{ id: string; name: string }>>('/api/seo/keyword-groups');
@@ -116,9 +118,11 @@ function Keywords() {
         {q.isLoading ? (
           <Skeleton className="h-72" />
         ) : (
+          <>
+          {kwFilter && <FilterChip label={`${t('common.search')}: ${kwFilter}`} onClear={clearKwFilter} />}
           <DataTable
             caption={t('seo.keywords')}
-            rows={q.data?.items ?? []}
+            rows={(q.data?.items ?? []).filter((r) => !kwFilter || r.keyword.toLowerCase().includes(kwFilter.toLowerCase()))}
             rowKey={(r) => r.id}
             exportTitle="tracked-keywords"
             exportMeta={[['Period', formatRange(gf.range, lang)], ['Position source', 'Search Console average (not rank tracking)']]}
@@ -149,6 +153,7 @@ function Keywords() {
               ...(can('seo.keywords.manage') ? [{ key: 'del', header: '', value: () => null, sortable: false, render: (r: KeywordRow) => <button type="button" className="rounded p-1 text-t3 hover:text-neg" aria-label={`${t('seo.deleteKeyword')}: ${r.keyword}`} onClick={() => remove(r.id)}><Trash2 className="size-3.5" /></button> }] : []),
             ]}
           />
+          </>
         )}
       </CardBody>
       <Modal
@@ -449,10 +454,19 @@ function IssueDrawer({ issue, onClose }: { issue: Issue | null; onClose: () => v
 
 function Issues() {
   const { t, lang, L } = useI18n();
-  const [status, setStatus] = useState('open,in_progress');
+  const [issueParam, clearIssueParam] = useUrlParam('issue');
+  // a deep link to one issue lists every status so the issue is found
+  const [status, setStatus] = useState(issueParam ? '' : 'open,in_progress');
   const [severity, setSeverity] = useState('');
   const [selected, setSelected] = useState<Issue | null>(null);
   const q = useApi<{ items: Issue[]; summary: Array<{ status: string; severity: string; n: number }> }>('/api/seo/issues', { status, severity });
+  useEffect(() => {
+    if (!issueParam || !q.data) return;
+    const it = q.data.items.find((x) => x.id === issueParam);
+    if (it) setSelected(it);
+    clearIssueParam();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issueParam, q.data]);
   const sum = (sev: string) => q.data?.summary.filter((s) => s.severity === sev && (s.status === 'open' || s.status === 'in_progress')).reduce((a, b) => a + Number(b.n), 0) ?? 0;
   return (
     <Card>

@@ -1,5 +1,6 @@
 import { Pencil, Play, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { useUrlParam } from '@/lib/useUrlParam';
 import { useQueryClient } from '@tanstack/react-query';
 import type { L10n } from '@shared/catalog';
 import { api } from '@/api/client';
@@ -15,7 +16,7 @@ import { FilterToolbar } from '@/components/layout/FilterToolbar';
 import { PageBody, PageHeader } from '@/components/layout/AppShell';
 import { Grid2, KpiRow, TrendCard } from '@/components/modules';
 import { DataTable } from '@/components/tables/DataTable';
-import { Badge, Button, Card, CardBody, CardHeader, Field, Input, Modal, Pagination, Select, Skeleton, Switch, TabPanel, Tabs, Textarea, useToast } from '@/components/ui';
+import { Badge, Button, Card, CardBody, CardHeader, Field, FilterChip, Input, Modal, Pagination, Select, Skeleton, Switch, TabPanel, Tabs, Textarea, useToast } from '@/components/ui';
 
 const TABS = ['overview', 'prompts', 'measurements', 'opportunities', 'vsseo'] as const;
 type Tab = (typeof TABS)[number];
@@ -238,6 +239,7 @@ function Prompts() {
   const meta = useMeta();
   const { can } = useSession();
   const q = useApi<Prompt[]>('/api/geo/prompts', gf.params);
+  const [promptParam, clearPromptParam] = useUrlParam('prompt');
   const [edit, setEdit] = useState<Prompt | null>(null);
   const [creating, setCreating] = useState(false);
   const topic = (k: string) => L(meta.data?.taxonomy.find((x) => x.kind === 'topic' && x.key === k)?.label) || k;
@@ -258,9 +260,11 @@ function Prompts() {
         {q.isLoading ? (
           <Skeleton className="h-72" />
         ) : (
+          <>
+          {promptParam && <FilterChip label={`${t('geo.prompt')}: ${promptParam}`} onClear={clearPromptParam} />}
           <DataTable
             caption={t('geo.prompts')}
-            rows={q.data ?? []}
+            rows={(q.data ?? []).filter((p) => !promptParam || p.key === promptParam)}
             rowKey={(r) => r.id}
             exportTitle="geo-prompts"
             exportMeta={[['Period', formatRange(gf.range, lang)]]}
@@ -276,6 +280,7 @@ function Prompts() {
               ...(can('geo.prompts.manage') ? [{ key: 'edit', header: '', value: () => null, sortable: false, render: (r: Prompt) => <button type="button" className="rounded p-1 text-t3 hover:text-t1" aria-label={`${t('geo.editPrompt')} ${r.key}`} onClick={() => setEdit(r)}><Pencil className="size-3.5" /></button> }] : []),
             ]}
           />
+          </>
         )}
       </CardBody>
       {(creating || edit) && <PromptEditor key={edit?.id ?? 'new'} prompt={edit} open onClose={() => (setEdit(null), setCreating(false))} />}

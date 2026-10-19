@@ -1,99 +1,72 @@
-# Digital Performance — Intelligence Platform
+# Veolia Digital Intelligence
 
-An enterprise digital-analytics platform demo: web, social, content, campaign and
-journey performance with a computed intelligence layer (insights, recommendations),
-data-quality governance, KPI catalogue, settings and administration.
+Internal platform for Veolia's digital performance: veolia.com (FR and EN), LinkedIn, X, YouTube, organic search, visibility in AI answers (GEO), content, ChatGPT Ads, and website conversions. It is built on one semantic metric layer and comes with a full administration back office.
 
-**All data is synthetic** (deterministic, seeded) and clearly labelled `DEMO DATA`
-in the product. The dataset exists to demonstrate product behaviour — every figure
-on every page is computed from it, never hard-coded.
+> **Current state: demonstration data only.** No Veolia account is connected. Every figure comes from a deterministic synthetic dataset covering July 2024 to the present, and the product labels it **DEMO** in every view, export and report. Connecting real sources requires the credentials and authorisations listed in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md). Production blockers are listed in [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
 
-## Run
+## Modules
+
+| # | Module | What it covers |
+|---|---|---|
+| 1 | Executive overview | Configurable KPI cards (no composite score), evolution chart (day/week/month, separate panels or an index, never two axes), channels, map with table, content snapshot, alerts, target progress, deterministic executive summary |
+| 2 | Website analytics | GA4 traffic, engagement, acquisition, landing pages, conversions (GA4 key events and Drupal Webform), tracking quality |
+| 3 | Social media | LinkedIn, X and YouTube per account and per post, formats, timing, cross-platform comparison with explicit rate definitions |
+| 4 | SEO intelligence | Search Console, tracked keywords, authorised technical audit with issue workflow, competitor benchmarks |
+| 5 | GEO & AI visibility | Versioned prompt library, mention and citation rates from the monitored sample, share of voice, AI-referral traffic |
+| 6 | ChatGPT Ads | Industries and Collectivities campaigns, budget pacing, platform conversions shown next to GA4 key events (never added together); read-only |
+| 7 | Content intelligence | One catalogue of pages, posts and videos with each channel's own metrics, taxonomy classification, freshness gaps |
+| 8 | Insights & recommendations | Rule-based recommendations with evidence, workflow (New → Dismissed), comments, assignment, history; alerts |
+| 9 | Reporting center | Builder with preview; PDF, XLSX and CSV output; executive report with a seven-part structure; templates, schedules, delivery history |
+| 10 | Administration | 17 sections, including RBAC, integration manager, dashboard builder, KPI registry, alerts, imports, targets, AI, audit and system monitoring |
+
+## Quick start (local, demo data)
+
+Requirements: Node.js 22.13 or later. No database server is needed; an embedded PostgreSQL (PGlite) is created in `./.data`.
 
 ```bash
 npm install
-npm run dev        # dev server
-npm run build      # production build (includes typecheck)
-npm run preview    # serve the production build
-npm test           # data-accuracy test suite (vitest)
+npm run setup      # writes .env with a fresh encryption key (never commit it)
+npm run dev        # API on :8787, web app on http://localhost:5173
 ```
 
-## Stack
+Sign in with one of the demo role buttons on the login page (Admin, Analyst, Editor, Executive viewer, FR-only editor). Demo sign-in is disabled automatically in production and once any real source is connected.
 
-React 18 · TypeScript (strict) · Vite · Tailwind CSS 4 (token-driven) ·
-Recharts · react-router · date-fns · zod · lucide-react · Vitest.
-Fonts are self-hosted (Inter Variable + IBM Plex Mono via Fontsource).
+## Commands
 
-## Architecture
+| Command | Purpose |
+|---|---|
+| `npm run dev` | API (watch mode) and Vite dev server |
+| `npm run build` | Typecheck, build the web app to `dist/`, bundle the server to `dist-server/` |
+| `npm start` | Run the built server (serves the API and the web app on `PORT`) |
+| `npm test` | Unit and API tests (Vitest): engine, crawler, connectors, RBAC, imports, reports, i18n |
+| `npm run test:e2e` | Build, then Playwright end-to-end and WCAG 2.2 AA (axe) tests on a throw-away database |
+| `npm run db:migrate` | Apply SQL migrations |
+| `npm run db:seed` | Create the organisation, users and reference data if the database is empty |
+| `npm run db:reset -- --yes` | Delete everything and re-seed (refused when `NODE_ENV=production`) |
+| `npm run db:generate` | Generate a migration after changing `server/db/schema.ts` |
+
+## Documentation
+
+- [docs/SETUP.md](docs/SETUP.md): environment variables, database, deployment, backups, e-mail and SSO.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): stack, components, data flow, security model and decision records.
+- [docs/USER_GUIDE.md](docs/USER_GUIDE.md): using the modules.
+- [docs/ADMINISTRATION.md](docs/ADMINISTRATION.md): the back office, section by section.
+- [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md): readiness matrix, credentials needed, the Drupal webhook specification and file imports.
+- [docs/METHODOLOGY.md](docs/METHODOLOGY.md): metric definitions, comparisons, SEO and GEO methods, recommendation rules, demo data.
+- [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md): what is incomplete and the production blockers.
+- [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md): status of the 24 acceptance criteria.
+
+## Repository layout
 
 ```
-src/
-  data/            seeded deterministic dataset generator + dimension catalogues
-  lib/
-    metrics.ts     central metric formulas (null-safe: no NaN/Infinity ever)
-    aggregate.ts   memoised aggregation selectors — all pages read through these
-    insights.ts    rule-based insight engine (computed evidence, EN/FR copy)
-    recommendations.ts  backlog derived from insights + standing items
-    dataQuality.ts real checks executed against the dataset at load
-    format.ts      locale-aware formatters (en-GB / fr-FR), "—" for invalid input
-    kpis.ts        KPI registry: value, format and delta semantics per metric
-    export.ts      self-describing CSV export with methodology
-  state/           Settings (persisted, zod-validated), Filters (URL-synced), Toasts
-  i18n/            EN/FR dictionaries — no copy hard-coded in components
-  components/      layout shell, charts, tables, filters, KPI cards, primitives
-  pages/           one focused page per route (14 routes)
+shared/     calendar, catalogue, metric registry (semantic layer), RBAC matrix, demo data generator
+server/     Hono API: auth, routes, analytics engine, connectors, jobs, insights, reports, crawler, imports
+  db/       Drizzle schema, SQL migrations, seed and CLI scripts
+src/        React web app: shell, pages per module, components, i18n (EN/FR), state
+e2e/        Playwright end-to-end and accessibility tests
+docs/       documentation
 ```
 
-## Data & metric integrity rules
+## Brand
 
-- Derived metrics are always computed from source values:
-  `CTR = clicks / impressions × 100`, `CVR = conversions / sessions × 100`,
-  `CPA = spend / conversions`, `ER(web) = engaged / sessions × 100`, etc.
-- Zero denominators render `—` (with an explanatory tooltip where relevant),
-  never `NaN` / `Infinity`.
-- Rate comparisons are expressed in **percentage points**; absolute metrics in
-  relative %.
-- Generator invariants (tested): `users ≤ sessions`, `conversions ≤ engaged ≤
-  sessions`, `clicks ≤ impressions`, `engagements ≤ impressions`, campaign
-  `conversions ≤ sessions ≤ clicks ≤ impressions`.
-- Funnels are monotonic by construction and by test.
-- Missing data stays missing: the X connector has a simulated 3-day outage —
-  charts show gaps, the Data Quality page reports it, totals are footnoted.
-
-### Documented attribution rules
-
-1. Web **Social** channel sessions are modelled from social platform clicks
-   (~82% click-through), so social clicks and social-channel sessions reconcile.
-2. **Campaign** delivery is a subset of the **Paid Media** channel
-   (paid sessions = campaign sessions + always-on base).
-3. Landing-page sessions are a distribution of web sessions per market/day —
-   page totals reconcile with web totals (tested, <1% rounding divergence).
-4. The journey/funnel views are scoped to paid & social and labelled
-   deterministic vs **modelled** per stage.
-
-## Tests
-
-`npm test` validates: metric formulas, zero-denominator safety, delta semantics
-(pp vs relative), formatter output, every generator invariant across all rows,
-funnel monotonicity under varied filters, aggregation reconciliation
-(channels/markets/pages/campaigns), filter recalculation (subset + partition),
-deterministic regeneration, and edge cases (planned campaign with no delivery,
-impossible filter combinations).
-
-## Feature notes
-
-- **Design**: light executive workspace (`#F4F7FB` canvas, white cards) with a
-  dark navy sidebar (`#0B172A`) and a crimson interaction accent (`#E11D2E`).
-  Light is the flagship theme; a navy-family dark theme and system mode are
-  available in Settings.
-- **Login**: neutral demo authentication (`admin` / `admin`, clearly labelled);
-  production deployments would use SSO.
-- **Filters** are global, URL-synced (shareable views) and genuinely recompute
-  every aggregate. Dimensions that don't apply to a page are visibly dimmed.
-- **Saved views** persist locally and are exposed in the toolbar and Reports.
-- **Command palette** (`⌘K` / `Ctrl+K`) searches pages, actions, campaigns,
-  landing pages, KPIs, markets and content.
-- **EN/FR** via dictionaries; language, theme, density and preferences persist.
-- Accessibility: semantic HTML, keyboard-navigable controls, aria labels on
-  icon-only buttons, chart descriptions, non-colour delta indicators (arrows),
-  `prefers-reduced-motion` respected.
+The Veolia Design System was not supplied with the brief. The interface uses interim, neutral design tokens isolated in `src/styles/app.css` (colours, radius, shadows, spacing, `--font-sans`). The interim typeface is Inter, an open-source font bundled with the app; it is a placeholder, not a brand choice. No Veolia logo is bundled: an administrator can upload the official logo file in Administration → Organisation. Replacing the tokens with the official design system is listed as a production blocker.

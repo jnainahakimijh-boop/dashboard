@@ -57,6 +57,8 @@ const SITE = new Map(SITES.map((s) => [s.id, s]));
 const COUNTRY = new Map(COUNTRIES.map((c) => [c.id, c]));
 const PAGE = new Map(PAGES.map((p) => [p.id, p]));
 const QUERY = new Map(QUERIES.map((q) => [q.id, q]));
+/** Branded search queries: the brand name, including common misspellings. */
+const BRAND_QUERY = /v[eé]olia|veolya|veollia/i;
 const ACCOUNT = new Map(SOCIAL_ACCOUNTS.map((a) => [a.id, a]));
 const AD = new Map(ADS.map((a) => [a.id, a]));
 const AD_GROUP = new Map(AD_GROUPS.map((g) => [g.id, g]));
@@ -118,7 +120,8 @@ export const VDIMS: Record<TableId, Partial<Record<DimensionId, VirtualDim>>> = 
     query: id('query'),
     topic: { phys: 'query', map: (k) => QUERY.get(k)?.topic ?? '(unassigned)' },
     bu: { phys: 'query', map: (k) => TOPIC_BU.get(QUERY.get(k)?.topic ?? '') ?? '(unassigned)' },
-    brand: { phys: 'query', map: (k) => (QUERY.get(k)?.brand ? 'brand' : 'non_brand') },
+    // catalogue flag when the query is known, otherwise the brand term in the query text (keys are `site:query`)
+    brand: { phys: 'query', map: (k) => ((QUERY.get(k)?.brand ?? BRAND_QUERY.test(k.slice(k.indexOf(':') + 1))) ? 'brand' : 'non_brand') },
   },
   searchpage: {
     site: id('site'),

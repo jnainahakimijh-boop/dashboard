@@ -634,7 +634,7 @@ export function adminRoutes() {
   });
   r.patch('/ai', requirePermission('ai.manage'), async (c) => {
     const app = c.get('app');
-    const d = await body(c, z.object({ enabled: z.boolean().optional(), provider: z.enum(['none', 'anthropic', 'openai', 'azure_openai']).optional(), model: z.string().max(120).nullable().optional(), baseUrl: z.string().url().startsWith('https://').nullable().optional(), maxOutputTokens: z.number().int().min(100).max(4000).optional(), temperature: z.number().min(0).max(1).optional(), monthlyTokenBudget: z.number().int().min(1000).max(100_000_000).nullable().optional(), allowedFeatures: z.array(z.enum(['executive_summary', 'recommendation_wording'])).optional(), requireHumanReview: z.boolean().optional() }));
+    const d = await body(c, z.object({ enabled: z.boolean().optional(), provider: z.enum(['none', 'anthropic', 'openai', 'azure_openai']).optional(), model: z.string().max(120).nullable().optional(), baseUrl: z.string().url().startsWith('https://').nullable().optional(), maxOutputTokens: z.number().int().min(100).max(4000).optional(), temperature: z.number().min(0).max(1).optional(), monthlyTokenBudget: z.number().int().min(1000).max(100_000_000).nullable().optional(), allowedFeatures: z.array(z.enum(['executive_summary'])).optional(), requireHumanReview: z.boolean().optional() }));
     await app.db.update(s.aiSettings).set({ ...d, updatedAt: new Date() }).where(eq(s.aiSettings.orgId, app.orgId));
     await audit(c, { action: 'ai.settings.update', details: d });
     return c.json({ ok: true });

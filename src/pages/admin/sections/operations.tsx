@@ -463,7 +463,7 @@ export function AiSection() {
             </Field>
             <fieldset className="md:col-span-2">
               <legend className="mb-1 text-[13px] font-medium">{t('admin.allowedFeatures')}</legend>
-              {['executive_summary', 'recommendation_wording'].map((x) => (
+              {['executive_summary'].map((x) => (
                 <Checkbox key={x} checked={f.allowedFeatures.includes(x)} onChange={(c) => setF({ ...f, allowedFeatures: c ? [...f.allowedFeatures, x] : f.allowedFeatures.filter((y) => y !== x) })} label={t(`admin.feature_${x}`)} />
               ))}
             </fieldset>

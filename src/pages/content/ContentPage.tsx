@@ -1,5 +1,6 @@
 import { ExternalLink, Info, Tag } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useUrlParam } from '@/lib/useUrlParam';
 import type { L10n } from '@shared/catalog';
 import { useApi, useMeta } from '@/api/hooks';
 import { useI18n } from '@/i18n';
@@ -97,7 +98,9 @@ function Catalogue() {
   const [kind, setKind] = useState<Kind>('web_page');
   const [topic, setTopic] = useState('');
   const [tag, setTag] = useState('');
-  const [q, setQ] = useState('');
+  // global search links here with ?q=<title>
+  const [qParam] = useUrlParam('q');
+  const [q, setQ] = useState(qParam ?? '');
   const [editing, setEditing] = useState<Item | null>(null);
   const res = useCatalog({ kind, topic, tag, q });
   const canTag = can('content.tag');
