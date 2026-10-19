@@ -16,6 +16,7 @@ export const TABLE_SCHEMAS: Record<TableId, TableSchema> = {
   webacq: { dims: ['site', 'channel', 'srcmed', 'campaign'], measures: GA4_ACQ_MEASURES, gapDim: 'site', label: { en: 'GA4 — acquisition (source / medium, campaign)', fr: 'GA4 — acquisition (source / support, campagne)' }, source: 'ga4' },
   webpage: { dims: ['site', 'page'], measures: GA4_PAGE_MEASURES, gapDim: 'site', label: { en: 'GA4 — landing pages', fr: 'GA4 — pages de destination' }, source: 'ga4' },
   webbrowser: { dims: ['site', 'device', 'browser'], measures: ['sessions', 'engaged'], gapDim: 'site', label: { en: 'GA4 — browsers', fr: 'GA4 — navigateurs' }, source: 'ga4' },
+  weblang: { dims: ['site', 'lang'], measures: ['sessions', 'engaged'], gapDim: 'site', label: { en: 'GA4 — visitor language', fr: 'GA4 — langue des visiteurs' }, source: 'ga4' },
   search: { dims: ['site', 'country', 'device'], measures: GSC_MEASURES, gapDim: 'site', label: { en: 'Search Console — property totals', fr: 'Search Console — totaux de la propriété' }, source: 'gsc' },
   searchquery: { dims: ['site', 'query'], measures: GSC_MEASURES, label: { en: 'Search Console — queries', fr: 'Search Console — requêtes' }, source: 'gsc' },
   searchpage: { dims: ['site', 'page'], measures: GSC_MEASURES, gapDim: 'site', label: { en: 'Search Console — pages', fr: 'Search Console — pages' }, source: 'gsc' },

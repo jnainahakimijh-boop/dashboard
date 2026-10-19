@@ -133,7 +133,7 @@ export async function loadWarehouseGeo(db: DB): Promise<{ rows: DemoGeoMeasureme
 
 export async function deleteFacts(db: DB, dataset: string, from: string, to: string, siteOrEntityKeys?: { dim: string; keys: string[] }): Promise<void> {
   const conds = [eq(factRows.dataset, dataset), sql`${factRows.day} >= ${from}`, sql`${factRows.day} <= ${to}`];
-  if (siteOrEntityKeys?.keys.length) conds.push(sql`${factRows.dims} ->> ${siteOrEntityKeys.dim} = ANY(${siteOrEntityKeys.keys})`);
+  if (siteOrEntityKeys?.keys.length) conds.push(inArray(sql`${factRows.dims} ->> ${siteOrEntityKeys.dim}`, siteOrEntityKeys.keys));
   await db.delete(factRows).where(sql.join(conds, sql` AND `));
 }
 

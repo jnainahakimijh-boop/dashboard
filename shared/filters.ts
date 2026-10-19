@@ -27,6 +27,7 @@ export const DIMENSIONS = [
   'adCategory',
   'form',
   'browser',
+  'userLanguage',
 ] as const;
 export type DimensionId = (typeof DIMENSIONS)[number];
 

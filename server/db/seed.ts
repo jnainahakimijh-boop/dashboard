@@ -267,8 +267,8 @@ export async function seedIfEmpty(db: DB, env: Env, log: (m: string) => void = (
   /* alert rules */
   await db.insert(s.alertRules).values([
     { orgId, name: 'Organic clicks down more than 15% week on week', metricId: 'organic_clicks', condition: 'change_down_pct', threshold: 15, windowDays: 7, severity: 'high', cooldownHours: 72, createdBy: admin.id },
-    { orgId, name: 'EN average position worsened by more than 1 place (water technologies)', metricId: 'avg_position', filters: { site: ['veolia-en'], bu: ['water_tech'] }, condition: 'change_up_abs', threshold: 1, windowDays: 7, severity: 'high', cooldownHours: 72, createdBy: admin.id },
-    { orgId, name: 'GA4 form tracking coverage below 60%', metricId: 'form_tracking_coverage', condition: 'below', threshold: 0.6, windowDays: 1, severity: 'critical', cooldownHours: 24, createdBy: admin.id },
+    { orgId, name: 'EN average position worsened by more than 0.5 place (water technologies)', metricId: 'avg_position', filters: { site: ['veolia-en'], bu: ['water_tech'] }, condition: 'change_up_abs', threshold: 0.5, windowDays: 7, severity: 'high', cooldownHours: 72, createdBy: admin.id },
+    { orgId, name: 'GA4 form tracking coverage below 75%', metricId: 'form_tracking_coverage', condition: 'below', threshold: 0.75, windowDays: 1, severity: 'critical', cooldownHours: 24, createdBy: admin.id },
     { orgId, name: 'Missing social data', metricId: 'social_impressions', condition: 'missing_data', windowDays: 7, severity: 'medium', cooldownHours: 72, createdBy: admin.id },
     { orgId, name: 'ChatGPT Ads spend pacing above 110% of budget', metricId: 'ads_spend', condition: 'pacing_above', threshold: 1.1, windowDays: 1, severity: 'high', cooldownHours: 48, createdBy: admin.id },
     { orgId, name: 'AI answer mention rate down more than 10 points', metricId: 'geo_mention_rate', condition: 'change_down_abs', threshold: 0.1, windowDays: 28, severity: 'medium', cooldownHours: 168, createdBy: admin.id },

@@ -34,6 +34,7 @@ import {
   GEO_PROMPTS,
   GEO_PROVIDERS,
   GSC_ANONYMISED_IMPRESSION_SHARE,
+  LANGUAGE_NAMES,
   NEUTRAL_CITATION_DOMAINS,
   PAGES,
   QUERIES,
@@ -79,6 +80,7 @@ export const CODES = {
   ad: ADS.map((a) => a.id),
   form: DRUPAL_FORMS.map((f) => f.id),
   browser: BROWSERS.map((b) => b.id),
+  lang: Object.keys(LANGUAGE_NAMES),
 } as const;
 
 export type DimCodeKey = keyof typeof CODES;
@@ -97,6 +99,7 @@ export const CODE_INDEX: { [K in DimCodeKey]: Map<string, number> } = {
   ad: idx(CODES.ad),
   form: idx(CODES.form),
   browser: idx(CODES.browser),
+  lang: idx(CODES.lang),
 };
 
 export const EVENT_MEASURES = EVENTS.map((e) => `ev_${e.id}`);
@@ -178,6 +181,8 @@ export interface DemoData {
   ga4acq: FactTable<'site' | 'channel' | 'srcmed' | 'campaign', (typeof GA4_ACQ_MEASURES)[number]>;
   ga4page: FactTable<'site' | 'page', (typeof GA4_PAGE_MEASURES)[number]>;
   ga4browser: FactTable<'site' | 'device' | 'browser', 'sessions' | 'engaged'>;
+  /** sessions by visitor (browser) language */
+  ga4lang: FactTable<'site' | 'lang', 'sessions' | 'engaged'>;
   gscSite: FactTable<'site' | 'country' | 'device', (typeof GSC_MEASURES)[number]>;
   gscQuery: FactTable<'site' | 'query', (typeof GSC_MEASURES)[number]>;
   gscPage: FactTable<'site' | 'page', (typeof GSC_MEASURES)[number]>;
@@ -705,6 +710,7 @@ export function generateDemoData(): DemoData {
   const ga4acq = new FactTable(['site', 'channel', 'srcmed', 'campaign'] as const, GA4_ACQ_MEASURES, D * 60);
   const ga4page = new FactTable(['site', 'page'] as const, GA4_PAGE_MEASURES, D * PAGES.length);
   const ga4browser = new FactTable(['site', 'device', 'browser'] as const, ['sessions', 'engaged'] as const, D * 40);
+  const ga4lang = new FactTable(['site', 'lang'] as const, ['sessions', 'engaged'] as const, D * 20);
   const drupal = new FactTable(['site', 'form'] as const, ['submissions'] as const, D * 6);
   const NE = EVENTS.length;
   const gapFrom = dayOf(GA4_TRACKING_GAP.from);
@@ -750,6 +756,7 @@ export function generateDemoData(): DemoData {
 
       const siteTot = new Float64Array(GA4_MEASURES.length);
       const deviceTot = new Float64Array(3 * 2); // sessions, engaged per device
+      const countryTot = new Float64Array(COUNTRIES.length * 2); // sessions, engaged per country
       const trueEvents = new Float64Array(NE);
       const chTotals = new Map<ChannelId, Float64Array>();
 
@@ -821,6 +828,8 @@ export function generateDemoData(): DemoData {
           }
           deviceTot[dv * 2] += sessions;
           deviceTot[dv * 2 + 1] += engaged;
+          countryTot[c * 2] += sessions;
+          countryTot[c * 2 + 1] += engaged;
         }
       });
 
@@ -915,6 +924,23 @@ export function generateDemoData(): DemoData {
         });
       }
 
+      // visitor language: country traffic split by each country's browser-language mix
+      const lw = new Float64Array(CODES.lang.length);
+      const lwe = new Float64Array(CODES.lang.length);
+      COUNTRIES.forEach((cc, ci) => {
+        for (const [lg, sh] of cc.languages) {
+          const li = CODE_INDEX.lang.get(lg);
+          if (li === undefined) continue;
+          lw[li] += countryTot[ci * 2] * sh;
+          lwe[li] += countryTot[ci * 2 + 1] * sh;
+        }
+      });
+      const ls = allocate(siteTot[0], lw);
+      const le = allocate(siteTot[3], lwe);
+      CODES.lang.forEach((_, li) => {
+        if (ls[li] > 0) ga4lang.push(d, [s, li], [ls[li], Math.min(ls[li], le[li])]);
+      });
+
       // Drupal webform submissions (server-side truth)
       DRUPAL_FORMS.forEach((f, fi) => {
         const ei = EVENTS.findIndex((e) => e.id === f.event);
@@ -927,6 +953,7 @@ export function generateDemoData(): DemoData {
   ga4acq.finalize(D);
   ga4page.finalize(D);
   ga4browser.finalize(D);
+  ga4lang.finalize(D);
   drupal.finalize(D);
 
   /* ===== 5. GEO measurements ===== */
@@ -1000,6 +1027,7 @@ export function generateDemoData(): DemoData {
     ga4acq,
     ga4page,
     ga4browser,
+    ga4lang,
     gscSite,
     gscQuery,
     gscPage,

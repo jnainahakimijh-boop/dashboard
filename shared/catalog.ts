@@ -427,7 +427,7 @@ const Q = (site: SiteId, query: string, topic: string, brand: boolean, imp: numb
   cliff,
 });
 
-const CLIFF_EN = { from: '2026-10-06', delta: 4.6 };
+const CLIFF_EN = { from: '2026-10-06', delta: 6.2 };
 
 export const QUERIES: QueryDef[] = [
   Q('veolia-en', 'veolia', 'corporate', true, 5200, 1.1, 0, '/en'),

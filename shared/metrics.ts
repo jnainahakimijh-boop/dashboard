@@ -17,7 +17,7 @@
 import { EVENTS, type L10n } from './catalog';
 import type { DimensionId } from './filters';
 
-export type TableId = 'web' | 'webacq' | 'webpage' | 'webbrowser' | 'search' | 'searchquery' | 'searchpage' | 'social' | 'ads' | 'forms';
+export type TableId = 'web' | 'webacq' | 'webpage' | 'webbrowser' | 'weblang' | 'search' | 'searchquery' | 'searchpage' | 'social' | 'ads' | 'forms';
 export type Unit = 'count' | 'percent' | 'currency' | 'seconds' | 'minutes' | 'position' | 'decimal';
 export type ModuleId = 'web' | 'search' | 'social' | 'ads' | 'geo' | 'forms';
 export type SourceKey = 'ga4' | 'gsc' | 'linkedin' | 'x' | 'youtube' | 'chatgpt_ads' | 'drupal' | 'geo';
@@ -58,6 +58,8 @@ const FORM_EVENT_MEASURES = EVENTS.filter((e) => e.drupalForm).map((e) => `ev_${
 export const CONVERSION_MEASURES = '@conversions';
 
 const WEB_TABLES: TableId[] = ['web', 'webacq', 'webpage'];
+/** tables that only carry sessions / engaged sessions (used for browser and visitor-language breakdowns) */
+const SESSION_TABLES: TableId[] = [...WEB_TABLES, 'webbrowser', 'weblang'];
 const LI_X = { platform: ['linkedin', 'x'] };
 
 const m = (d: MetricDef) => d;
@@ -72,7 +74,7 @@ export const METRICS: MetricDef[] = [
       fr: 'Sessions GA4 (session_start), tous canaux confondus.',
     },
     unit: 'count',
-    agg: { kind: 'sum', tables: WEB_TABLES, measures: ['sessions'] },
+    agg: { kind: 'sum', tables: SESSION_TABLES, measures: ['sessions'] },
     direction: 'up',
     module: 'web',
     sources: ['ga4'],
@@ -113,7 +115,7 @@ export const METRICS: MetricDef[] = [
       fr: "Sessions GA4 de 10 s ou plus, avec un événement clé ou au moins 2 pages vues.",
     },
     unit: 'count',
-    agg: { kind: 'sum', tables: WEB_TABLES, measures: ['engaged'] },
+    agg: { kind: 'sum', tables: SESSION_TABLES, measures: ['engaged'] },
     direction: 'up',
     module: 'web',
     sources: ['ga4'],
@@ -839,6 +841,7 @@ export const TABLE_SOURCES: Record<TableId, SourceKey[]> = {
   webacq: ['ga4'],
   webpage: ['ga4'],
   webbrowser: ['ga4'],
+  weblang: ['ga4'],
   search: ['gsc'],
   searchquery: ['gsc'],
   searchpage: ['gsc'],

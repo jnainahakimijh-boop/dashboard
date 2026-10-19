@@ -104,6 +104,7 @@ export const VDIMS: Record<TableId, Partial<Record<DimensionId, VirtualDim>>> = 
     bu: pageAttr((p) => p.bu),
   },
   webbrowser: { site: id('site'), language: siteLang, device: id('device'), browser: id('browser') },
+  weblang: { site: id('site'), language: siteLang, userLanguage: id('lang') },
   search: {
     site: id('site'),
     language: siteLang,
@@ -214,6 +215,7 @@ const DEMO_DICTS: Record<string, readonly string[]> = {
   ad: CODES.ad,
   form: CODES.form,
   browser: CODES.browser,
+  lang: CODES.lang,
 };
 
 export function buildDemoDataset(): Dataset {
@@ -234,6 +236,7 @@ export function buildDemoDataset(): Dataset {
       webacq: mk('webacq', d.ga4acq, 'site'),
       webpage: mk('webpage', d.ga4page, 'site'),
       webbrowser: mk('webbrowser', d.ga4browser, 'site'),
+      weblang: mk('weblang', d.ga4lang, 'site'),
       search: mk('search', d.gscSite, 'site'),
       searchquery: mk('searchquery', d.gscQuery),
       searchpage: mk('searchpage', d.gscPage, 'site'),
