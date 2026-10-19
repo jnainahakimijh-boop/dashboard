@@ -414,7 +414,7 @@ export function MultiSelect({ label, options, value, onChange, placeholderAll, s
           aria-controls={id}
           className={clsx('inline-flex h-8 max-w-[220px] items-center gap-1.5 rounded-[var(--radius-ctl)] border px-2.5 text-[13px] transition-colors', value.length ? 'border-accbrd bg-accsoft text-t1' : 'border-brd bg-card text-t2 hover:border-brds')}
         >
-          <span className="text-t3">{label}:</span>
+          <span className="whitespace-nowrap text-t3">{label}:</span>
           <span className="truncate font-medium text-t1">{summary}</span>
           <ChevronDown className="size-3.5 shrink-0 text-t3" aria-hidden />
         </button>

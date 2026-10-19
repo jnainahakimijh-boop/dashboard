@@ -93,6 +93,11 @@ export function useDimLabel() {
   return (dim: DimensionId, key: string): string => dimLabel(meta.data, L, dim, key);
 }
 
+const AD_CATEGORY_LABELS: Record<string, { en: string; fr: string }> = {
+  industries: { en: 'Industries', fr: 'Industries' },
+  collectivities: { en: 'Collectivities', fr: 'Collectivités' },
+};
+
 export function dimLabel(m: Meta | undefined, L: (v: never) => string, dim: DimensionId, key: string): string {
   const Lx = L as (v: unknown) => string;
   if (!m) return key;
@@ -131,6 +136,8 @@ export function dimLabel(m: Meta | undefined, L: (v: never) => string, dim: Dime
       return m.catalog.adGroups.find((c) => c.id === key)?.name ?? key;
     case 'ad':
       return m.catalog.ads.find((c) => c.id === key)?.name ?? key;
+    case 'adCategory':
+      return Lx(AD_CATEGORY_LABELS[key]) || key;
     default:
       return key;
   }

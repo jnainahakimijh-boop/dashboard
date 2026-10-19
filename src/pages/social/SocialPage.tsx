@@ -1,8 +1,6 @@
 import { Tag } from 'lucide-react';
 import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import type { ResultNote } from '@shared/filters';
-import { api } from '@/api/client';
 import { useApi, useMeta } from '@/api/hooks';
 import { useI18n } from '@/i18n';
 import { formatDate, formatPct, formatRange, formatValue } from '@/lib/format';
@@ -15,7 +13,8 @@ import { FilterToolbar } from '@/components/layout/FilterToolbar';
 import { PageBody, PageHeader } from '@/components/layout/AppShell';
 import { Grid2, KpiRow, TrendCard, useDimLabel } from '@/components/modules';
 import { DataTable } from '@/components/tables/DataTable';
-import { Badge, Button, Card, CardBody, CardHeader, Checkbox, Drawer, EmptyState, Field, Input, Pagination, Select, Skeleton, TabPanel, Tabs, useToast } from '@/components/ui';
+import { ClassifyDrawer } from '@/components/content/ClassifyDrawer';
+import { Badge, Button, Card, CardBody, CardHeader, EmptyState, Field, Input, Pagination, Select, Skeleton, TabPanel, Tabs } from '@/components/ui';
 
 const TABS = ['overview', 'linkedin', 'x', 'youtube', 'posts', 'compare', 'timing'] as const;
 type Tab = (typeof TABS)[number];
@@ -105,82 +104,6 @@ interface Post {
   videoViews: number;
   watchMinutes: number;
   tags: string[];
-}
-
-function ClassifyDrawer({ post, onClose }: { post: Post | null; onClose: () => void }) {
-  const { t, L } = useI18n();
-  const meta = useMeta();
-  const qc = useQueryClient();
-  const toast = useToast();
-  const [form, setForm] = useState<Partial<Post>>({});
-  const [saving, setSaving] = useState(false);
-  const terms = (kind: string) => meta.data?.taxonomy.filter((x) => x.kind === kind) ?? [];
-  const cur = { ...post, ...form } as Post;
-  if (!post) return null;
-  const save = async () => {
-    setSaving(true);
-    try {
-      await api.send('PUT', `/api/content/items/${encodeURIComponent(post.id)}/classification`, { topic: cur.topic, pillar: cur.pillar, objective: cur.objective, audience: cur.audience, campaign: cur.campaign, tags: cur.tags });
-      await qc.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).startsWith('/api/social') || String(q.queryKey[0]).startsWith('/api/content') });
-      toast(t('social.saved'), 'pos');
-      setForm({});
-      onClose();
-    } catch (e) {
-      toast((e as Error).message, 'neg');
-    } finally {
-      setSaving(false);
-    }
-  };
-  const sel = (kind: 'topic' | 'pillar' | 'objective' | 'audience', label: string) => (
-    <Field label={label} htmlFor={`c-${kind}`}>
-      <Select id={`c-${kind}`} value={cur[kind] ?? ''} onChange={(e) => setForm({ ...form, [kind]: e.target.value })}>
-        {terms(kind).map((x) => (
-          <option key={x.key} value={x.key}>
-            {L(x.label)}
-          </option>
-        ))}
-      </Select>
-    </Field>
-  );
-  return (
-    <Drawer
-      open={!!post}
-      onClose={() => (setForm({}), onClose())}
-      title={t('social.classifyTitle')}
-      footer={
-        <>
-          <Button onClick={() => (setForm({}), onClose())}>{t('common.cancel')}</Button>
-          <Button variant="primary" loading={saving} onClick={save}>
-            {t('common.save')}
-          </Button>
-        </>
-      }
-    >
-      <p className="mb-4 rounded-lg bg-card2 p-3 text-[13.5px]">{post.text}</p>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {sel('topic', t('social.topic'))}
-        {sel('pillar', t('social.pillar'))}
-        {sel('objective', t('social.objective'))}
-        {sel('audience', t('social.audience'))}
-        <Field label={t('social.campaign')} htmlFor="c-campaign">
-          <Select id="c-campaign" value={cur.campaign ?? ''} onChange={(e) => setForm({ ...form, campaign: e.target.value || null })}>
-            <option value="">—</option>
-            {meta.data?.campaigns.map((c) => (
-              <option key={c.key} value={c.key}>
-                {L(c.name)}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      </div>
-      <fieldset className="mt-4">
-        <legend className="mb-1 text-[13px] font-medium">{t('social.tags')}</legend>
-        {terms('tag').map((tg) => (
-          <Checkbox key={tg.key} checked={cur.tags?.includes(tg.key) ?? false} onChange={(c) => setForm({ ...form, tags: c ? [...(cur.tags ?? []), tg.key] : (cur.tags ?? []).filter((x) => x !== tg.key) })} label={L(tg.label)} />
-        ))}
-      </fieldset>
-    </Drawer>
-  );
 }
 
 function PostsTable({ platform }: { platform?: string }) {
@@ -306,7 +229,7 @@ function PostsTable({ platform }: { platform?: string }) {
         )}
         {res.data && <Pagination page={res.data.page} pageSize={res.data.pageSize} total={res.data.total} onPage={setPage} />}
       </CardBody>
-      <ClassifyDrawer post={editing} onClose={() => setEditing(null)} />
+      <ClassifyDrawer item={editing && { key: editing.id, text: editing.text, topic: editing.topic, pillar: editing.pillar, objective: editing.objective, audience: editing.audience, campaign: editing.campaign, tags: editing.tags }} onClose={() => setEditing(null)} />
     </Card>
   );
 }
