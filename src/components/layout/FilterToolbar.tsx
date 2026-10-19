@@ -1,4 +1,5 @@
 /** Section A — global filter toolbar: period presets, comparison, dimensions, saved views. */
+import clsx from 'clsx';
 import { Bookmark, CalendarDays, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -130,6 +131,7 @@ export function FilterToolbar({ dims = DEFAULT_DIMS, extraDims = ['device', 'pla
   const meta = useMeta();
   const m = meta.data;
   const [customOpen, setCustomOpen] = useState(false);
+  const [dimsOpen, setDimsOpen] = useState(false);
   const [from, setFrom] = useState(gf.range.from);
   const [to, setTo] = useState(gf.range.to);
   const options = (k: FilterKey): Array<{ value: string; label: string; group?: string }> => {
@@ -203,7 +205,12 @@ export function FilterToolbar({ dims = DEFAULT_DIMS, extraDims = ['device', 'pla
           </Select>
         </div>
         <span className="mx-1 hidden h-6 w-px bg-brd lg:block" aria-hidden />
-        <div className="flex flex-wrap items-center gap-1.5">
+        {/* on phones the dimension filters are folded behind a toggle so content stays visible */}
+        <Button size="sm" variant="ghost" className="md:hidden" icon={<SlidersHorizontal className="size-3.5" />} aria-expanded={dimsOpen} aria-controls="dim-filters" onClick={() => setDimsOpen(!dimsOpen)}>
+          {t('filters.title')}
+          {gf.activeCount > 0 && <span className="rounded-full bg-acc px-1.5 text-[11px] text-white">{gf.activeCount}</span>}
+        </Button>
+        <div id="dim-filters" className={clsx('flex-wrap items-center gap-1.5 md:flex', dimsOpen ? 'flex w-full' : 'hidden')}>
           {dims.map(dimControl)}
           {extraDims.length > 0 && (
             <Popover

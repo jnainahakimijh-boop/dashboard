@@ -20,9 +20,11 @@ export function ChangeLabel({ metric, result, compact }: { metric: string; resul
   const { t, lang } = useI18n();
   const def = getMetric(metric);
   if (!def || result.delta === null) return <span className="text-[12.5px] text-t3">—</span>;
-  const tone = changeTone(metric, result.delta);
-  const Icon = result.delta > 0 ? ArrowUpRight : result.delta < 0 ? ArrowDownRight : ArrowRight;
   const main = def.deltaPct && result.deltaPct !== null ? formatPct(result.deltaPct, lang) : formatDelta(result.delta, def.unit, lang);
+  // a change that rounds to zero at display precision is shown as flat, not as good or bad
+  const flat = /^[+−±-]?0([.,]0+)?\s*(%|pts?|pt)?$/.test(main.replace(/\u202f|\u00a0/g, ' ').trim());
+  const tone = flat ? 'neutral' : changeTone(metric, result.delta);
+  const Icon = flat ? ArrowRight : result.delta > 0 ? ArrowUpRight : result.delta < 0 ? ArrowDownRight : ArrowRight;
   return (
     <span className={clsx('inline-flex items-center gap-0.5 text-[12.5px] font-semibold tnum', tone === 'pos' && 'text-pos', tone === 'neg' && 'text-neg', tone === 'neutral' && 'text-t2')}>
       <Icon className="size-3.5" aria-hidden />
