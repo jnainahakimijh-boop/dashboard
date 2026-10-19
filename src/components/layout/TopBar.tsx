@@ -88,8 +88,10 @@ function Notifications() {
       width={380}
       label={t('common.notifications')}
       trigger={({ toggle, open, id }) => (
-        <button type="button" onClick={toggle} aria-expanded={open} aria-controls={id} className="relative inline-flex size-9 items-center justify-center rounded-[var(--radius-ctl)] text-t2 hover:bg-hov hover:text-t1" aria-label={`${t('common.notifications')}${unread ? ` (${unread})` : ''}`}>
-          <Bell className="size-[18px]" />
+        <button type="button" onClick={toggle} aria-expanded={open} aria-controls={id} className="relative inline-flex size-9 items-center justify-center rounded-[var(--radius-ctl)] text-t2 hover:bg-hov hover:text-t1">
+          <Bell className="size-[18px]" aria-hidden />
+          {/* name comes from content so the visible count is part of it */}
+          <span className="sr-only">{t('common.notifications')} </span>
           {unread > 0 && <span className="absolute top-1 right-1 flex min-w-4 items-center justify-center rounded-full bg-acc px-1 text-[10px] leading-4 font-bold text-white">{unread > 99 ? '99+' : unread}</span>}
         </button>
       )}

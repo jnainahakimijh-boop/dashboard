@@ -6,6 +6,7 @@ import { SessionProvider, useSession } from '@/state/session';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button, Spinner, ToastProvider } from '@/components/ui';
 import { LoginPage } from '@/pages/LoginPage';
+import { canAccessModule, type AppModule } from '@shared/rbac';
 
 const OverviewPage = lazy(() => import('@/pages/overview/OverviewPage'));
 const WebPage = lazy(() => import('@/pages/web/WebPage'));
@@ -18,6 +19,20 @@ const InsightsPage = lazy(() => import('@/pages/insights/InsightsPage'));
 const ReportsPage = lazy(() => import('@/pages/reports/ReportsPage'));
 const AdminPage = lazy(() => import('@/pages/admin/AdminPage'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
+
+/** Shown when the user's account is restricted to other modules (the API refuses these requests too). */
+function Restricted() {
+  const { t } = useI18n();
+  return (
+    <div className="flex flex-col items-center gap-2 px-6 py-24 text-center">
+      <h1 className="text-xl font-semibold">{t('shell.restricted')}</h1>
+      <p className="text-t2">{t('shell.restrictedHint')}</p>
+      <Link to="/">
+        <Button variant="primary">{t('shell.backHome')}</Button>
+      </Link>
+    </div>
+  );
+}
 
 function NotFound() {
   const { t } = useI18n();
@@ -54,6 +69,7 @@ function Guarded() {
       </div>
     );
   if (!me) return <Navigate to="/login" replace state={{ from: loc.pathname + loc.search }} />;
+  const mod = (m: AppModule, el: JSX.Element) => (canAccessModule(me.user.scopes, m) ? el : <Restricted />);
   return (
     <Routes>
       <Route element={<AppShell />}>
@@ -69,12 +85,12 @@ function Guarded() {
             >
               <Routes>
                 <Route index element={<OverviewPage />} />
-                <Route path="web" element={<WebPage />} />
-                <Route path="social" element={<SocialPage />} />
-                <Route path="seo" element={<SeoPage />} />
-                <Route path="geo" element={<GeoPage />} />
-                <Route path="ads" element={<AdsPage />} />
-                <Route path="content" element={<ContentPage />} />
+                <Route path="web" element={mod('web', <WebPage />)} />
+                <Route path="social" element={mod('social', <SocialPage />)} />
+                <Route path="seo" element={mod('seo', <SeoPage />)} />
+                <Route path="geo" element={mod('geo', <GeoPage />)} />
+                <Route path="ads" element={mod('ads', <AdsPage />)} />
+                <Route path="content" element={mod('content', <ContentPage />)} />
                 <Route path="insights" element={<InsightsPage />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="admin" element={can('admin.view') ? <AdminPage /> : <NotFound />} />

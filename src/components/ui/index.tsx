@@ -205,7 +205,7 @@ export function InfoTip({ content, label, className, icon }: { content: ReactNod
   const id = useId();
   return (
     <span className={clsx('relative inline-flex', className)} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
-      <button type="button" aria-label={label} aria-describedby={open ? id : undefined} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} onClick={() => setOpen((o) => !o)} className="inline-flex size-5 items-center justify-center rounded text-t3 hover:text-t1">
+      <button type="button" aria-label={label} aria-describedby={open ? id : undefined} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} onClick={() => setOpen((o) => !o)} className="-m-0.5 inline-flex size-6 items-center justify-center rounded text-t3 hover:text-t1">
         {icon ?? <Info className="size-3.5" aria-hidden />}
       </button>
       {open && (

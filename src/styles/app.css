@@ -119,8 +119,8 @@
   --text-2: rgba(226, 234, 245, 0.68);
   --text-3: rgba(226, 234, 245, 0.58);
 
-  --accent: #f24150;
-  --accent-strong: #e11d2e;
+  --accent: #e11d2e; /* white text on it: 4.7:1 */
+  --accent-strong: #c11223;
   --accent-ink: #ffffff;
   --accent-soft: rgba(242, 65, 80, 0.11);
   --accent-border: rgba(242, 65, 80, 0.35);
@@ -389,4 +389,10 @@ body {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* keyboard focus on map shapes (the library resets outlines) */
+.map-shape:focus-visible {
+  stroke: var(--text-1);
+  stroke-width: 1.5px;
 }

@@ -22,7 +22,7 @@ export default function WorldMap({ data, unit, ariaLabel }: { data: MapDatum[]; 
   const step = (v: number) => 1 + Math.min(6, Math.floor((Math.log10(1 + v) / Math.log10(1 + max)) * 6.999));
   return (
     <div className="relative" onMouseLeave={() => setHover(null)}>
-      <ComposableMap projection="geoEqualEarth" projectionConfig={{ scale: 150 }} width={800} height={380} style={{ width: '100%', height: 'auto' }} role="img" aria-label={ariaLabel} data-chart>
+      <ComposableMap projection="geoEqualEarth" projectionConfig={{ scale: 150 }} width={800} height={380} style={{ width: '100%', height: 'auto' }} role="group" aria-label={ariaLabel} data-chart>
         <ZoomableGroup center={[10, 20]} zoom={1} minZoom={1} maxZoom={4}>
           <Geographies geography={world as unknown as object}>
             {({ geographies }) =>
@@ -37,6 +37,9 @@ export default function WorldMap({ data, unit, ariaLabel }: { data: MapDatum[]; 
                     stroke="var(--bg-card)"
                     strokeWidth={0.5}
                     tabIndex={d ? 0 : -1}
+                    className="map-shape"
+                    role={d ? 'img' : undefined}
+                    aria-hidden={d ? undefined : true}
                     aria-label={d ? `${d.name}: ${formatValue(d.value, unit, lang)}` : undefined}
                     onMouseMove={(e: React.MouseEvent) => {
                       const rect = (e.currentTarget as SVGElement).ownerSVGElement!.getBoundingClientRect();

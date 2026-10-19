@@ -11,7 +11,7 @@
     "setup": "node scripts/setup-env.mjs",
     "dev": "node scripts/dev.mjs",
     "dev:web": "vite",
-    "dev:server": "tsx watch --tsconfig tsconfig.server.json server/index.ts",
+    "dev:server": "SERVE_SPA=false tsx watch --tsconfig tsconfig.server.json server/index.ts",
     "build": "npm run typecheck && vite build && node scripts/build-server.mjs",
     "start": "node dist-server/index.js",
     "db:generate": "drizzle-kit generate",
@@ -21,7 +21,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "npm run build && playwright test",
+    "test:e2e:only": "playwright test",
     "preview": "npm run build && npm start"
   },
   "dependencies": {
