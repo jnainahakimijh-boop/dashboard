@@ -1,17 +1,31 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
 import '@fontsource-variable/inter';
 import '@fontsource/ibm-plex-mono/400.css';
-import '@fontsource/ibm-plex-mono/500.css';
-import '@fontsource/ibm-plex-mono/600.css';
 import './styles/app.css';
-import App from './App';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { ApiError } from '@/api/client';
+import { App } from './App';
+import { PrefsProvider } from '@/state/prefs';
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </React.StrictMode>,
+const qc = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (n, e) => !(e instanceof ApiError && [400, 401, 403, 404, 422].includes(e.status)) && n < 2,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <QueryClientProvider client={qc}>
+      <BrowserRouter>
+        <PrefsProvider>
+          <App />
+        </PrefsProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
+  </StrictMode>,
 );

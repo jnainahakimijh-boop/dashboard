@@ -50,16 +50,16 @@ export function allowedUrl(u: URL, opts: Pick<CrawlOptions, 'allowedHosts' | 'in
   return true;
 }
 
-async function fetchLimited(url: string, opts: CrawlOptions): Promise<{ status: number; type: string; body: string; location: string | null; ms: number }> {
+async function fetchLimited(url: string, opts: CrawlOptions, accept: 'html' | 'text' = 'html'): Promise<{ status: number; type: string; body: string; location: string | null; ms: number }> {
   const f = opts.fetchImpl ?? fetch;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   const t0 = Date.now();
   try {
-    const res = await f(url, { redirect: 'manual', signal: ctrl.signal, headers: { 'user-agent': opts.userAgent, accept: 'text/html,application/xhtml+xml' }, credentials: 'omit' });
+    const res = await f(url, { redirect: 'manual', signal: ctrl.signal, headers: { 'user-agent': opts.userAgent, accept: accept === 'html' ? 'text/html,application/xhtml+xml' : 'text/plain' }, credentials: 'omit' });
     const type = res.headers.get('content-type') ?? '';
     let body = '';
-    if (res.status === 200 && type.includes('html') && res.body) {
+    if (res.status === 200 && (accept === 'text' || type.includes('html')) && res.body) {
       const reader = res.body.getReader();
       const chunks: Uint8Array[] = [];
       let size = 0;
@@ -125,7 +125,7 @@ export async function crawl(opts: CrawlOptions): Promise<CrawledPage[]> {
     const robotsUrl = `${u.protocol}//${u.host}/robots.txt`;
     let robots: ReturnType<typeof robotsParser> | null = null;
     try {
-      const r = await fetchLimited(robotsUrl, opts);
+      const r = await fetchLimited(robotsUrl, opts, 'text');
       if (r.status === 200) robots = robotsParser(robotsUrl, r.body || '');
       else if (r.status >= 500) robots = robotsParser(robotsUrl, 'User-agent: *\nDisallow: /'); // server error → assume full disallow
     } catch {

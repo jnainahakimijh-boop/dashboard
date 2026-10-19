@@ -7,7 +7,7 @@ import { can } from '@shared/rbac';
 import { requirePermission } from '../auth/middleware';
 import { audit } from '../audit';
 import { HttpError, currentUser, type HonoEnv, type Ctx } from '../context';
-import { alertEvents, notifications, recommendationComments, recommendationHistory, recommendations, users } from '../db/schema';
+import { alertEvents, metricTargets, notifications, recommendationComments, recommendationHistory, recommendations, users } from '../db/schema';
 import { buildExecutiveSummary, summaryToText } from '../insights/summary';
 import { generateRecommendations } from '../insights/recommendations';
 import { explainFacts, aiStatus } from '../ai/provider';
@@ -39,6 +39,8 @@ export function insightsRoutes() {
     }
     return c.json({ ...summary, narrative, ai: await aiStatus(app) });
   });
+
+  r.get('/targets', async (c) => c.json(await c.get('app').db.select().from(metricTargets).orderBy(desc(metricTargets.periodStart))));
 
   /* ---------- recommendations ---------- */
   r.get('/recommendations', async (c) => {

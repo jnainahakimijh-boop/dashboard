@@ -1,103 +1,85 @@
-import { dayToDate } from '@/data/dimensions';
+/** Locale-aware formatting for every number shown in the UI (single source of truth). */
+import type { Unit } from '@shared/metrics';
 
-/** ------------------------------------------------------------------
- *  Locale-aware formatters. All null-safe: invalid input renders "—".
- *  The UI must never show NaN / Infinity / undefined.
- *  ------------------------------------------------------------------ */
+type Lang = 'en' | 'fr';
+const loc = (lang: Lang) => (lang === 'fr' ? 'fr-FR' : 'en-GB');
 
-export const EM_DASH = '—';
-
-export type Locale = 'en' | 'fr';
-
-const localeTag = (l: Locale) => (l === 'fr' ? 'fr-FR' : 'en-GB');
-
-function valid(v: number | null | undefined): v is number {
-  return typeof v === 'number' && Number.isFinite(v);
+export function formatValue(v: number | null | undefined, unit: Unit | 'text' | undefined, lang: Lang, opts: { compact?: boolean; currency?: string } = {}): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) return '—';
+  const L = loc(lang);
+  switch (unit) {
+    case 'percent':
+      return new Intl.NumberFormat(L, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: Math.abs(v) < 0.01 ? 2 : 1 }).format(v);
+    case 'currency':
+      return new Intl.NumberFormat(L, { style: 'currency', currency: opts.currency ?? 'EUR', notation: opts.compact && Math.abs(v) >= 10_000 ? 'compact' : 'standard', maximumFractionDigits: Math.abs(v) < 100 ? 2 : 0 }).format(v);
+    case 'position':
+      return new Intl.NumberFormat(L, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(v);
+    case 'decimal':
+      return new Intl.NumberFormat(L, { maximumFractionDigits: 2 }).format(v);
+    case 'seconds': {
+      const m = Math.floor(v / 60);
+      const s = Math.round(v % 60);
+      return m ? `${m} min ${String(s).padStart(2, '0')} s` : `${s} s`;
+    }
+    case 'minutes':
+      return `${new Intl.NumberFormat(L, { notation: opts.compact && v >= 10_000 ? 'compact' : 'standard', maximumFractionDigits: v < 10 ? 1 : 0 }).format(v)} min`;
+    case 'count':
+      return new Intl.NumberFormat(L, { notation: opts.compact && Math.abs(v) >= 10_000 ? 'compact' : 'standard', maximumFractionDigits: opts.compact && Math.abs(v) >= 10_000 ? 1 : 0 }).format(v);
+    default:
+      return new Intl.NumberFormat(L, { maximumFractionDigits: 2 }).format(v);
+  }
 }
 
-/** Integer with thousands grouping: 248,420 */
-export function fmtInt(v: number | null | undefined, l: Locale = 'en'): string {
-  if (!valid(v)) return EM_DASH;
-  return new Intl.NumberFormat(localeTag(l), { maximumFractionDigits: 0 }).format(v);
+export function formatPct(x: number | null | undefined, lang: Lang, signed = true): string {
+  if (x === null || x === undefined || !Number.isFinite(x)) return '—';
+  return new Intl.NumberFormat(loc(lang), { style: 'percent', maximumFractionDigits: Math.abs(x) < 0.1 ? 1 : 0, minimumFractionDigits: Math.abs(x) < 0.1 ? 1 : 0, signDisplay: signed ? 'exceptZero' : 'auto' }).format(x);
 }
 
-/** Compact: 248.4k / 1.2M */
-export function fmtCompact(v: number | null | undefined, l: Locale = 'en'): string {
-  if (!valid(v)) return EM_DASH;
-  if (Math.abs(v) < 10000) return fmtInt(v, l);
-  return new Intl.NumberFormat(localeTag(l), { notation: 'compact', maximumFractionDigits: 1 }).format(v);
+/** Absolute difference in the metric's unit (rates in percentage points). */
+export function formatDelta(d: number | null | undefined, unit: Unit, lang: Lang, currency?: string): string {
+  if (d === null || d === undefined || !Number.isFinite(d)) return '—';
+  const sign = d > 0 ? '+' : d < 0 ? '−' : '±';
+  if (unit === 'percent') return `${sign}${new Intl.NumberFormat(loc(lang), { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(Math.abs(d * 100))} ${lang === 'fr' ? 'pt' : 'pts'}`;
+  return `${sign}${formatValue(Math.abs(d), unit, lang, { compact: true, currency })}`;
 }
 
-/** Percentage with 1 decimal (value already in %): 3.8% */
-export function fmtPct(v: number | null | undefined, l: Locale = 'en', digits = 1): string {
-  if (!valid(v)) return EM_DASH;
-  return `${new Intl.NumberFormat(localeTag(l), { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(v)}%`;
+export function formatDate(iso: string | null | undefined, lang: Lang, style: 'short' | 'medium' | 'long' = 'medium'): string {
+  if (!iso) return '—';
+  const d = new Date(iso.length === 10 ? `${iso}T00:00:00Z` : iso);
+  const opts: Intl.DateTimeFormatOptions = style === 'short' ? { day: 'numeric', month: 'short' } : style === 'long' ? { day: 'numeric', month: 'long', year: 'numeric' } : { day: 'numeric', month: 'short', year: 'numeric' };
+  return new Intl.DateTimeFormat(loc(lang), { ...opts, timeZone: iso.length === 10 ? 'UTC' : 'Europe/Paris' }).format(d);
 }
 
-/** Signed relative change: +12.4% */
-export function fmtRelDelta(v: number | null | undefined, l: Locale = 'en'): string {
-  if (!valid(v)) return EM_DASH;
-  const sign = v > 0 ? '+' : '';
-  return `${sign}${new Intl.NumberFormat(localeTag(l), { maximumFractionDigits: 1 }).format(v)}%`;
+export function formatDateTime(iso: string | null | undefined, lang: Lang): string {
+  if (!iso) return '—';
+  return new Intl.DateTimeFormat(loc(lang), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Paris' }).format(new Date(iso));
 }
 
-/** Signed percentage-point change: +0.4 pp (always 1 decimal — a rate delta of
- *  "+0 pp" would hide the direction of a real, small movement) */
-export function fmtPpDelta(v: number | null | undefined, l: Locale = 'en'): string {
-  if (!valid(v)) return EM_DASH;
-  const sign = v > 0 ? '+' : '';
-  return `${sign}${new Intl.NumberFormat(localeTag(l), { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(v)} pp`;
+export function formatRange(r: { from: string; to: string } | null | undefined, lang: Lang): string {
+  if (!r) return '—';
+  if (r.from === r.to) return formatDate(r.from, lang);
+  const sameYear = r.from.slice(0, 4) === r.to.slice(0, 4);
+  return `${sameYear ? formatDate(r.from, lang, 'short') : formatDate(r.from, lang)} – ${formatDate(r.to, lang)}`;
 }
 
-/** Axis ticks: consistent compact notation from 1,000 upward (5K, 10K, 1.2M) */
-export function fmtAxis(v: number | null | undefined, l: Locale = 'en'): string {
-  if (!valid(v)) return '';
-  if (Math.abs(v) >= 1000) return new Intl.NumberFormat(localeTag(l), { notation: 'compact', maximumFractionDigits: 1 }).format(v);
-  return fmtInt(v, l);
+export function relativeTime(iso: string | null | undefined, lang: Lang): string {
+  if (!iso) return '—';
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  const rtf = new Intl.RelativeTimeFormat(loc(lang), { numeric: 'auto' });
+  if (Math.abs(diff) < 60) return rtf.format(-Math.round(diff), 'second');
+  if (Math.abs(diff) < 3600) return rtf.format(-Math.round(diff / 60), 'minute');
+  if (Math.abs(diff) < 86400) return rtf.format(-Math.round(diff / 3600), 'hour');
+  return rtf.format(-Math.round(diff / 86400), 'day');
 }
 
-/** EUR currency: €12,480 / €4.20 for small values */
-export function fmtEur(v: number | null | undefined, l: Locale = 'en'): string {
-  if (!valid(v)) return EM_DASH;
-  return new Intl.NumberFormat(localeTag(l), {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: Math.abs(v) < 100 ? 2 : 0,
-  }).format(v);
+export function formatBucket(key: string, granularity: 'day' | 'week' | 'month', lang: Lang): string {
+  if (granularity === 'month') return new Intl.DateTimeFormat(loc(lang), { month: 'short', year: '2-digit', timeZone: 'UTC' }).format(new Date(`${key}-01T00:00:00Z`));
+  return formatDate(key, lang, 'short');
 }
 
-/** Duration in seconds → 2m 18s */
-export function fmtDuration(v: number | null | undefined): string {
-  if (!valid(v)) return EM_DASH;
-  const s = Math.round(v);
-  const m = Math.floor(s / 60);
-  return m > 0 ? `${m}m ${String(s % 60).padStart(2, '0')}s` : `${s}s`;
-}
-
-/** Day index → short date: 12 Jun */
-export function fmtDay(d: number, l: Locale = 'en'): string {
-  return new Intl.DateTimeFormat(localeTag(l), { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(dayToDate(d));
-}
-
-/** Day index → full date: 12 Jun 2026 */
-export function fmtDayFull(d: number, l: Locale = 'en'): string {
-  return new Intl.DateTimeFormat(localeTag(l), { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(dayToDate(d));
-}
-
-/** Range label: 28 Jul – 24 Aug 2026 */
-export function fmtRange(from: number, to: number, l: Locale = 'en'): string {
-  return `${fmtDay(from, l)} – ${fmtDayFull(to, l)}`;
-}
-
-/** Signed integer for absolute deltas: +1,204 */
-export function fmtSignedInt(v: number | null | undefined, l: Locale = 'en'): string {
-  if (!valid(v)) return EM_DASH;
-  const sign = v > 0 ? '+' : '';
-  return `${sign}${fmtInt(v, l)}`;
-}
-
-/** Multiplier: 3.4× */
-export function fmtX(v: number | null | undefined, l: Locale = 'en'): string {
-  if (!valid(v)) return EM_DASH;
-  return `${new Intl.NumberFormat(localeTag(l), { maximumFractionDigits: 1 }).format(v)}×`;
+export function formatBytes(n: number | null | undefined): string {
+  if (!n) return '—';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
