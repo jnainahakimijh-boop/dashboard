@@ -1,13 +1,14 @@
 import clsx from 'clsx';
 import { ChevronRight, Star } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { useApi, useMeta } from '@/api/hooks';
 import { useI18n } from '@/i18n';
 import { configureFormatting } from '@/lib/format';
-import { usePrefs } from '@/state/prefs';
+import { explicitPrefs, usePrefs, type Density, type Theme } from '@/state/prefs';
+import { useSession } from '@/state/session';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 
@@ -36,6 +37,28 @@ function OrgDefaults() {
   return null;
 }
 
+/** Keeps theme and density in the user profile so they follow the user across devices. */
+function ProfilePrefsSync() {
+  const { me } = useSession();
+  const { prefs, setPrefs } = usePrefs();
+  const loadedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!me || loadedFor.current === me.user.id) return;
+    loadedFor.current = me.user.id;
+    const p = me.user.preferences as { theme?: Theme; density?: Density };
+    setPrefs({ ...(p.theme ? { theme: p.theme } : {}), ...(p.density ? { density: p.density } : {}) });
+  }, [me, setPrefs]);
+  useEffect(() => {
+    if (!me || loadedFor.current !== me.user.id) return;
+    const ex = explicitPrefs();
+    const server = me.user.preferences as { theme?: string; density?: string };
+    if ((ex.theme ?? server.theme) === server.theme && (ex.density ?? server.density) === server.density) return;
+    const id = setTimeout(() => void api.send('PATCH', '/api/auth/me', { preferences: { ...me.user.preferences, ...(ex.theme ? { theme: ex.theme } : {}), ...(ex.density ? { density: ex.density } : {}) } }).catch(() => {}), 600);
+    return () => clearTimeout(id);
+  }, [prefs.theme, prefs.density, me]);
+  return null;
+}
+
 export function AppShell() {
   const { t } = useI18n();
   const [mobile, setMobile] = useState(false);
@@ -45,6 +68,7 @@ export function AppShell() {
         {t('common.skipToContent')}
       </a>
       <OrgDefaults />
+      <ProfilePrefsSync />
       <Sidebar mobileOpen={mobile} onClose={() => setMobile(false)} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar onMenu={() => setMobile(true)} />

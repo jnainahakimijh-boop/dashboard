@@ -25,6 +25,11 @@ function read(): Prefs {
   return { ...DEFAULTS, ...stored() };
 }
 
+/** Preferences the user has explicitly chosen (as opposed to defaults). */
+export function explicitPrefs(): Partial<Prefs> {
+  return stored();
+}
+
 interface Ctx {
   prefs: Prefs;
   setPrefs: (p: Partial<Prefs>) => void;
@@ -39,7 +44,8 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
     set((cur) => {
       const next = { ...cur, ...p };
       try {
-        localStorage.setItem(KEY, JSON.stringify(next));
+        // only explicit choices are stored, so organisation defaults keep applying to the rest
+        localStorage.setItem(KEY, JSON.stringify({ ...stored(), ...p }));
       } catch {
         /* storage unavailable */
       }
