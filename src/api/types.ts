@@ -5,7 +5,7 @@ import type { Permission, Role } from '@shared/rbac';
 export type { AnalyticsResponse, DataMode, MetricResult };
 
 export interface Me {
-  user: { id: string; email: string; name: string; role: Role; language: 'en' | 'fr'; scopes: { websites?: string[] }; isDemo: boolean; hasPassword: boolean; preferences: Record<string, unknown> };
+  user: { id: string; email: string; name: string; role: Role; language: 'en' | 'fr'; scopes: { websites?: string[]; modules?: string[] }; isDemo: boolean; hasPassword: boolean; preferences: Record<string, unknown> };
   permissions: Permission[];
 }
 
@@ -25,8 +25,19 @@ export interface WidgetConfig {
   title?: string;
 }
 
+export interface OrgUiSettings {
+  conversionEvents: string[];
+  appName?: string;
+  supportedLanguages?: Array<'en' | 'fr'>;
+  dateFormat?: 'locale' | 'iso';
+  numberLocale?: 'fr-FR' | 'en-GB' | 'en-US';
+  defaultPeriod?: string;
+  defaultCompare?: 'previous' | 'yoy' | 'none';
+  defaultTheme?: 'light' | 'dark' | 'system';
+}
+
 export interface Meta {
-  org: { name: string; timezone: string; currency: string; defaultLanguage: string; logoDataUrl: string | null; demoMode: boolean; settings: { conversionEvents: string[] } };
+  org: { name: string; timezone: string; currency: string; defaultLanguage: string; logoDataUrl: string | null; demoMode: boolean; settings: OrgUiSettings };
   asOf: string;
   dataStart: string | null;
   sources: Record<string, SourceStatus>;

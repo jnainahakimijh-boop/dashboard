@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { ChevronsLeft, ChevronsRight, LogOut, X } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
-import { ROLE_LABELS } from '@shared/rbac';
+import { APP_MODULES, ROLE_LABELS, canAccessModule, type AppModule } from '@shared/rbac';
 import { useMeta } from '@/api/hooks';
 import { useI18n } from '@/i18n';
 import { NAV, SETTINGS_ITEM } from '@/lib/nav';
@@ -14,7 +14,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose:
   const { prefs, setPrefs } = usePrefs();
   const meta = useMeta();
   const collapsed = prefs.sidebarCollapsed && !mobileOpen;
-  const groups = (['performance', 'intelligence', 'governance'] as const).map((g) => ({ g, items: NAV.filter((n) => n.group === g && (!n.permission || can(n.permission))) }));
+  const groups = (['performance', 'intelligence', 'governance'] as const).map((g) => ({ g, items: NAV.filter((n) => n.group === g && (!n.permission || can(n.permission)) && (!(APP_MODULES as readonly string[]).includes(n.key) || canAccessModule(me?.user.scopes, n.key as AppModule))) }));
   const linkCls = ({ isActive }: { isActive: boolean }) =>
     clsx('group flex items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors', collapsed && 'justify-center px-2', isActive ? 'bg-sact text-st1 shadow-[inset_3px_0_0_var(--accent)]' : 'text-st2 hover:bg-shov hover:text-st1');
   return (
@@ -32,7 +32,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose:
           {meta.data?.org.logoDataUrl ? <img src={meta.data.org.logoDataUrl} alt="" className="h-8 w-auto max-w-[40px] rounded" /> : null}
           {!collapsed && (
             <div className="min-w-0">
-              <p className="truncate text-[15px] font-semibold tracking-tight text-st1">{t('common.appName')}</p>
+              <p className="truncate text-[15px] font-semibold tracking-tight text-st1">{meta.data?.org.settings.appName ?? t('common.appName')}</p>
               <p className="truncate text-[11.5px] text-st3">{t('common.appTagline')}</p>
             </div>
           )}

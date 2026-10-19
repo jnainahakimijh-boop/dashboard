@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from 'hono';
 import { getCookie } from 'hono/cookie';
-import { can, type Permission } from '@shared/rbac';
+import { can, canAccessModule, type AppModule, type Permission } from '@shared/rbac';
 import { writeAudit } from '../audit';
 import { HttpError, clientIp, type HonoEnv } from '../context';
 import { SESSION_COOKIE, resolveSession } from './session';
@@ -18,6 +18,19 @@ export const requireAuth: MiddlewareHandler<HonoEnv> = async (c, next) => {
 };
 
 /** Server-side permission check; denials are audited. */
+/** Per-user module restriction (scopes.modules), enforced on the module's routes. */
+export function requireModule(m: AppModule): MiddlewareHandler<HonoEnv> {
+  return async (c, next) => {
+    const u = c.get('user');
+    if (!u) throw new HttpError(401, 'Authentication required', 'unauthenticated');
+    if (!canAccessModule(u.scopes, m)) {
+      await writeAudit(c.get('app'), { action: 'access.denied', outcome: 'denied', userId: u.id, userEmail: u.email, ip: clientIp(c), details: { module: m, method: c.req.method, path: c.req.path } });
+      throw new HttpError(403, 'Your access does not include this module', 'forbidden', { module: m });
+    }
+    await next();
+  };
+}
+
 export function requirePermission(p: Permission): MiddlewareHandler<HonoEnv> {
   return async (c, next) => {
     const u = c.get('user');

@@ -1,5 +1,5 @@
 import type { Hono } from 'hono';
-import { requireAuth } from '../auth/middleware';
+import { requireAuth, requireModule } from '../auth/middleware';
 import type { HonoEnv } from '../context';
 import { adminRoutes } from './admin';
 import { adsRoutes } from './ads';
@@ -18,6 +18,8 @@ export function registerModuleRoutes(app: Hono<HonoEnv>): void {
   app.route('/api/ingest', ingestRoutes());
   app.use('/api/notifications/*', requireAuth);
   app.use('/api/exports/*', requireAuth);
+  // per-user module restrictions (scopes.modules); role permissions are checked inside each router
+  for (const m of ['web', 'social', 'seo', 'geo', 'ads', 'content'] as const) app.use(`/api/${m}/*`, requireAuth, requireModule(m));
   app.route('/api/web', webRoutes());
   app.route('/api/social', socialRoutes());
   app.route('/api/seo', seoRoutes());

@@ -1,11 +1,13 @@
 import clsx from 'clsx';
 import { ChevronRight, Star } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { useApi, useMeta } from '@/api/hooks';
 import { useI18n } from '@/i18n';
+import { configureFormatting } from '@/lib/format';
+import { usePrefs } from '@/state/prefs';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 
@@ -21,6 +23,19 @@ export function DemoBanner() {
   );
 }
 
+/** Applies organisation-wide display defaults (formatting, theme) once metadata is loaded. */
+function OrgDefaults() {
+  const meta = useMeta();
+  const { applyOrgTheme } = usePrefs();
+  const st = meta.data?.org.settings;
+  useEffect(() => {
+    if (!st) return;
+    configureFormatting({ numberLocale: st.numberLocale, dateFormat: st.dateFormat });
+    applyOrgTheme(st.defaultTheme);
+  }, [st, applyOrgTheme]);
+  return null;
+}
+
 export function AppShell() {
   const { t } = useI18n();
   const [mobile, setMobile] = useState(false);
@@ -29,6 +44,7 @@ export function AppShell() {
       <a href="#main" className="sr-only z-[300] rounded bg-card px-3 py-2 focus:not-sr-only focus:fixed focus:top-2 focus:left-2">
         {t('common.skipToContent')}
       </a>
+      <OrgDefaults />
       <Sidebar mobileOpen={mobile} onClose={() => setMobile(false)} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar onMenu={() => setMobile(true)} />

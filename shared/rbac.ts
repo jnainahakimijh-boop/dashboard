@@ -100,3 +100,15 @@ export function assignableRoles(actor: Role): Role[] {
 export function isRole(x: unknown): x is Role {
   return typeof x === 'string' && (ROLES as readonly string[]).includes(x);
 }
+
+/** Analytics modules that can be restricted per user (in addition to the role). */
+export const APP_MODULES = ['web', 'social', 'seo', 'geo', 'ads', 'content'] as const;
+export type AppModule = (typeof APP_MODULES)[number];
+
+/** Which app module governs metrics of each semantic-layer module. */
+export const METRIC_MODULE_TO_APP: Record<string, AppModule> = { web: 'web', forms: 'web', search: 'seo', social: 'social', ads: 'ads', geo: 'geo' };
+
+/** Users without a module list may access every module their role allows. */
+export function canAccessModule(scopes: { modules?: string[] } | null | undefined, module: AppModule): boolean {
+  return !scopes?.modules?.length || scopes.modules.includes(module);
+}

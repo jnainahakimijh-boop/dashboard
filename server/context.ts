@@ -26,7 +26,7 @@ export interface SessionUser {
   name: string;
   role: Role;
   language: string;
-  scopes: { websites?: string[] };
+  scopes: { websites?: string[]; modules?: string[] };
   isDemo: boolean;
   sessionId: string;
 }

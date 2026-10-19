@@ -105,6 +105,24 @@ describe('RBAC enforced server-side', () => {
     expect(detail.comments.length).toBeGreaterThan(0);
   });
 
+  it('enforces per-user module restrictions on routes and on the semantic layer', async () => {
+    const users = (await (await as(ADMIN).get('/api/admin/users')).json()) as Array<{ id: string; email: string }>;
+    const exec = users.find((u) => u.email === EXEC)!;
+    expect((await as(ADMIN).send('PATCH', `/api/admin/users/${exec.id}`, { scopes: { modules: ['web'] } })).status).toBe(200);
+    try {
+      expect((await as(EXEC).get('/api/ads/pacing')).status).toBe(403);
+      expect((await as(EXEC).get('/api/web/pages')).status).toBe(200);
+      const q = await as(EXEC).send('POST', '/api/analytics/query', { metrics: ['sessions', 'ads_spend'], from: '2026-09-01', to: '2026-09-30', compare: 'none' });
+      const j = (await q.json()) as { results: Array<{ metric: string; value: number | null; meta: { mode: string; notes: Array<{ code: string }> } }> };
+      expect(j.results.find((r) => r.metric === 'sessions')!.value).not.toBeNull();
+      const ads = j.results.find((r) => r.metric === 'ads_spend')!;
+      expect(ads.value).toBeNull();
+      expect(ads.meta.notes[0].code).toBe('module_restricted');
+    } finally {
+      await as(ADMIN).send('PATCH', `/api/admin/users/${exec.id}`, { scopes: {} });
+    }
+  });
+
   it('prevents admins from creating super administrators', async () => {
     const res = await as(ADMIN).send('POST', '/api/admin/users', { email: 'new.super@veolia.example', name: 'X', role: 'super_admin' });
     expect(res.status).toBe(403);

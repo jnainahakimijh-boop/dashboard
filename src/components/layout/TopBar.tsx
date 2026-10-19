@@ -231,6 +231,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
   const { t, lang } = useI18n();
   const { prefs, setPrefs } = usePrefs();
   const { me } = useSession();
+  const meta = useMeta();
   const [cmd, setCmd] = useState(false);
   const saved = useRef(false);
   useEffect(() => {
@@ -261,7 +262,9 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
         <DataStatus />
         <Favorites />
         <Notifications />
-        <Segmented size="sm" label={t('common.language')} value={lang} onChange={setLang} options={[{ value: 'fr', label: 'FR' }, { value: 'en', label: 'EN' }]} />
+        {(meta.data?.org.settings.supportedLanguages ?? ['fr', 'en']).length > 1 && (
+          <Segmented size="sm" label={t('common.language')} value={lang} onChange={setLang} options={(['fr', 'en'] as const).filter((l) => (meta.data?.org.settings.supportedLanguages ?? ['fr', 'en']).includes(l)).map((l) => ({ value: l, label: l.toUpperCase() }))} />
+        )}
         <IconButton label={`${t('shell.theme')}: ${dark ? t('shell.themeLight') : t('shell.themeDark')}`} onClick={() => setPrefs({ theme: dark ? 'light' : 'dark' })}>
           {dark ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
         </IconButton>

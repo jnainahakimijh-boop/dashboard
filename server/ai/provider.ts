@@ -5,7 +5,7 @@
  *  aggregated, non-personal metrics. Numbers always come from the
  *  deterministic engine; the model only phrases them.
  *  ------------------------------------------------------------------ */
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import type { AppContext } from '../context';
 import { aiExecutions, aiPromptTemplates, aiSettings, dataConnections } from '../db/schema';
 import { sha256 } from '../security/crypto';
@@ -13,7 +13,7 @@ import { redact, safeErrorMessage } from '../security/redact';
 
 export interface AiStatus {
   available: boolean;
-  reason: 'disabled' | 'not_configured' | 'not_approved' | 'no_key' | 'ok';
+  reason: 'disabled' | 'not_configured' | 'not_approved' | 'no_key' | 'feature_not_allowed' | 'budget_exceeded' | 'ok';
   provider: string;
   model: string | null;
 }
@@ -66,6 +66,15 @@ export async function explainFacts(app: AppContext, purpose: string, facts: Reco
   const status = await aiStatus(app);
   if (!status.available) return { text: null, status };
   const [s] = await app.db.select().from(aiSettings).where(eq(aiSettings.orgId, app.orgId));
+  if (!s.allowedFeatures.includes(purpose)) return { text: null, status: { ...status, available: false, reason: 'feature_not_allowed' } };
+  if (s.monthlyTokenBudget !== null) {
+    const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1));
+    const [{ used }] = await app.db
+      .select({ used: sql<number>`coalesce(sum(coalesce(${aiExecutions.inputTokens}, 0) + coalesce(${aiExecutions.outputTokens}, 0)), 0)::int` })
+      .from(aiExecutions)
+      .where(and(eq(aiExecutions.orgId, app.orgId), gte(aiExecutions.createdAt, monthStart)));
+    if (Number(used) + s.maxOutputTokens > s.monthlyTokenBudget) return { text: null, status: { ...status, available: false, reason: 'budget_exceeded' } };
+  }
   const [conn] = await app.db.select().from(dataConnections).where(eq(dataConnections.provider, 'ai_provider'));
   const [tpl] = await app.db
     .select()

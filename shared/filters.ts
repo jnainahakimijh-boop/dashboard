@@ -65,7 +65,8 @@ export interface ResultNote {
     | 'sample_only'
     | 'platform_attributed'
     | 'compare_incomplete'
-    | 'definition_differs';
+    | 'definition_differs'
+    | 'module_restricted';
   params?: Record<string, string | number>;
 }
 

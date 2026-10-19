@@ -78,6 +78,8 @@ export function noteText(n: ResultNote, t: (k: string, p?: Record<string, string
       return t('common.groupbyUnsupported');
     case 'no_data':
       return t('common.noData');
+    case 'module_restricted':
+      return t('common.moduleRestricted');
     case 'unavailable':
       return `${t('common.unavailable')}${p.reason ? ` (${String(p.reason).replace(/_/g, ' ')})` : ''}`;
     default:

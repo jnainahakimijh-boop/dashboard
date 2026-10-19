@@ -126,6 +126,8 @@ export const websites = pgTable('websites', {
   gscProperty: text('gsc_property'),
   drupalEnabled: boolean('drupal_enabled').notNull().default(true),
   status: text('status').notNull().default('active'),
+  /** { countries?: string[]; regions?: string[]; contentCategories?: string[]; conversionEvents?: string[] } */
+  settings: jsonb('settings').$type<{ countries?: string[]; regions?: string[]; contentCategories?: string[]; conversionEvents?: string[] }>().notNull().default({}),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -143,6 +145,8 @@ export const socialAccounts = pgTable('social_accounts', {
   businessUnit: text('business_unit'),
   status: text('status').notNull().default('active'),
   connectionId: uuid('connection_id'),
+  /** metrics reported for this account (subset of the platform's supported metrics) */
+  metrics: jsonb('metrics').$type<string[]>().notNull().default([]),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -847,6 +851,12 @@ export const aiSettings = pgTable('ai_settings', {
   approvedAt: ts('approved_at'),
   maxOutputTokens: integer('max_output_tokens').notNull().default(800),
   temperature: doublePrecision('temperature').notNull().default(0.2),
+  /** hard cap on input + output tokens per calendar month; null = no cap configured */
+  monthlyTokenBudget: integer('monthly_token_budget'),
+  /** AI features the organisation allows (e.g. executive_summary, recommendation_wording) */
+  allowedFeatures: jsonb('allowed_features').$type<string[]>().notNull().default(['executive_summary']),
+  /** AI text is shown as a draft that a person must review before it is shared */
+  requireHumanReview: boolean('require_human_review').notNull().default(true),
   connectionId: uuid('connection_id'),
   updatedAt: updatedAt(),
 });

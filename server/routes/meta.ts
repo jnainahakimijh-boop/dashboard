@@ -17,14 +17,21 @@ import {
   PLATFORMS,
   REGIONS,
 } from '@shared/catalog';
-import { analyticsQuerySchema } from '@shared/filters';
-import { DEFAULT_EXECUTIVE_KPIS, TABLE_SOURCES, type SourceKey, type TableId } from '@shared/metrics';
+import { analyticsQuerySchema, type MetricResult } from '@shared/filters';
+import { DEFAULT_EXECUTIVE_KPIS, TABLE_SOURCES, getMetric, type SourceKey, type TableId } from '@shared/metrics';
+import { METRIC_MODULE_TO_APP, canAccessModule } from '@shared/rbac';
 import { requirePermission } from '../auth/middleware';
 import { currentUser, type HonoEnv } from '../context';
 import { campaigns, competitors, dashboards, dataConnections, metricDefinitions, organizations, socialAccounts, taxonomyTerms, websites } from '../db/schema';
 import { QueryError } from '../analytics/engine';
 import { HttpError } from '../context';
 import { body } from './util';
+
+/** Organisation settings that the web app needs (no retention or internal values). */
+function pickOrgSettings(st: Record<string, unknown>) {
+  const keys = ['appName', 'supportedLanguages', 'dateFormat', 'numberLocale', 'defaultPeriod', 'defaultCompare', 'defaultTheme'] as const;
+  return { conversionEvents: (st.conversionEvents as string[] | undefined) ?? [], ...Object.fromEntries(keys.filter((k) => st[k] !== undefined).map((k) => [k, st[k]])) };
+}
 
 export function metaRoutes() {
   const r = new Hono<HonoEnv>();
@@ -62,7 +69,7 @@ export function metaRoutes() {
     ]);
     const scope = user.scopes?.websites;
     return c.json({
-      org: { name: org.name, timezone: org.timezone, currency: org.currency, defaultLanguage: org.defaultLanguage, logoDataUrl: org.logoDataUrl, demoMode: ds.demoEnabled, settings: { conversionEvents: (org.settings as { conversionEvents?: string[] }).conversionEvents ?? [] } },
+      org: { name: org.name, timezone: org.timezone, currency: org.currency, defaultLanguage: org.defaultLanguage, logoDataUrl: org.logoDataUrl, demoMode: ds.demoEnabled, settings: pickOrgSettings(org.settings) },
       asOf: ds.asOf,
       dataStart: Object.values(ds.tables).reduce<string | null>((m, t) => (t?.coverage && (!m || t.coverage.from < m) ? t.coverage.from : m), null),
       sources,
@@ -98,8 +105,19 @@ export function metaRoutes() {
   r.post('/analytics/query', async (c) => {
     const app = c.get('app');
     const q = await body(c, analyticsQuerySchema);
+    const user = currentUser(c);
+    // metrics from modules outside the user's scope are returned as unavailable, never computed
+    const restricted = q.metrics.filter((m) => !canAccessModule(user.scopes, METRIC_MODULE_TO_APP[getMetric(m)?.module ?? 'web']));
     try {
-      return c.json(await app.analytics.query(currentUser(c), q));
+      if (!restricted.length) return c.json(await app.analytics.query(user, q));
+      const allowed = q.metrics.filter((m) => !restricted.includes(m));
+      const res = allowed.length ? await app.analytics.query(user, { ...q, metrics: allowed }) : null;
+      const blank = (metric: string): MetricResult => ({ metric, value: null, compare: null, delta: null, deltaPct: null, meta: { mode: 'unavailable', table: null, sources: [], ignoredFilters: [], range: null, compareRange: null, coverageEnd: null, freshness: null, notes: [{ code: 'module_restricted' }] } });
+      return c.json({
+        query: res?.query ?? { from: q.from, to: q.to, compare: q.compare, granularity: q.granularity ?? null, groupBy: q.groupBy ?? null, filters: q.filters },
+        results: q.metrics.map((m) => res?.results.find((r) => r.metric === m) ?? blank(m)),
+        generatedAt: res?.generatedAt ?? new Date().toISOString(),
+      });
     } catch (e) {
       if (e instanceof QueryError) throw new HttpError(e.status === 500 ? 500 : 400, e.message, 'query');
       throw e;

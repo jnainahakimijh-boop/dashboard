@@ -4,7 +4,7 @@ import { and, asc, desc, eq, gte, ilike, inArray, ne, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { EVENTS } from '@shared/catalog';
 import { METRICS, getMetric } from '@shared/metrics';
-import { ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS, ROLE_PERMISSIONS, PERMISSIONS, assignableRoles, type Role } from '@shared/rbac';
+import { APP_MODULES, ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS, ROLE_PERMISSIONS, PERMISSIONS, assignableRoles, type Role } from '@shared/rbac';
 import { requirePermission } from '../auth/middleware';
 import { audit } from '../audit';
 import { destroyUserSessions } from '../auth/session';
@@ -19,6 +19,7 @@ import { csvEscape } from '../reports/render';
 import { evaluateAlertRules } from '../insights/alerts';
 import { aiStatus } from '../ai/provider';
 import { body, notFound, uuidParam } from './util';
+import { DEFAULT_EXECUTIVE_LAYOUT } from '../db/seed';
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const WIDGET_TYPES = ['kpi_grid', 'evolution', 'channels', 'geography', 'content_snapshot', 'alerts', 'ai_summary', 'targets'] as const;
@@ -71,7 +72,23 @@ export function adminRoutes() {
         defaultLanguage: z.enum(['en', 'fr']).optional(),
         currency: z.string().regex(/^[A-Z]{3}$/).optional(),
         demoMode: z.boolean().optional(),
-        settings: z.object({ fiscalYearStartMonth: z.number().int().min(1).max(12).optional(), weekStartsOn: z.number().int().min(0).max(6).optional(), dataRetentionMonths: z.number().int().min(3).max(120).optional(), auditRetentionMonths: z.number().int().min(6).max(120).optional(), reportRetentionDays: z.number().int().min(7).max(3650).optional() }).optional(),
+        settings: z
+          .object({
+            appName: z.string().trim().min(2).max(80).optional(),
+            supportedLanguages: z.array(z.enum(['en', 'fr'])).min(1).optional(),
+            dateFormat: z.enum(['locale', 'iso']).optional(),
+            numberLocale: z.enum(['fr-FR', 'en-GB', 'en-US']).optional(),
+            defaultPeriod: z.enum(['last7', 'last30', 'last90', 'mtd', 'qtd', 'ytd', 'prevMonth', 'prevQuarter', 'prevYear']).optional(),
+            defaultCompare: z.enum(['previous', 'yoy', 'none']).optional(),
+            defaultTheme: z.enum(['light', 'dark', 'system']).optional(),
+            fiscalYearStartMonth: z.number().int().min(1).max(12).optional(),
+            weekStartsOn: z.number().int().min(0).max(6).optional(),
+            dataRetentionMonths: z.number().int().min(3).max(120).optional(),
+            auditRetentionMonths: z.number().int().min(6).max(120).optional(),
+            reportRetentionDays: z.number().int().min(7).max(3650).optional(),
+            geoRetentionMonths: z.number().int().min(3).max(120).optional(),
+          })
+          .optional(),
       }),
     );
     const [cur] = await app.db.select().from(s.organizations).where(eq(s.organizations.id, app.orgId));
@@ -116,7 +133,7 @@ export function adminRoutes() {
     role: z.enum(ROLES),
     language: z.enum(['en', 'fr']).default('fr'),
     password: z.string().max(256).optional(),
-    scopes: z.object({ websites: z.array(z.string().max(60)).max(20).optional() }).default({}),
+    scopes: z.object({ websites: z.array(z.string().max(60)).max(20).optional(), modules: z.array(z.enum(APP_MODULES)).max(10).optional() }).default({}),
   });
 
   const guardRole = (actor: Role, target: Role) => {
@@ -143,7 +160,7 @@ export function adminRoutes() {
     const app = c.get('app');
     const actor = currentUser(c);
     const id = uuidParam(c);
-    const d = await body(c, z.object({ name: z.string().trim().min(1).max(120).optional(), role: z.enum(ROLES).optional(), status: z.enum(['active', 'disabled']).optional(), language: z.enum(['en', 'fr']).optional(), scopes: z.object({ websites: z.array(z.string().max(60)).max(20).optional() }).optional(), unlock: z.boolean().optional() }));
+    const d = await body(c, z.object({ name: z.string().trim().min(1).max(120).optional(), role: z.enum(ROLES).optional(), status: z.enum(['active', 'disabled']).optional(), language: z.enum(['en', 'fr']).optional(), scopes: z.object({ websites: z.array(z.string().max(60)).max(20).optional(), modules: z.array(z.enum(APP_MODULES)).max(10).optional() }).optional(), unlock: z.boolean().optional() }));
     const [target] = await app.db.select().from(s.users).where(eq(s.users.id, id));
     if (!target) notFound('User');
     if (target.role === 'super_admin' && actor.role !== 'super_admin') throw new HttpError(403, 'Only a super administrator can modify a super administrator', 'forbidden');
@@ -286,7 +303,7 @@ export function adminRoutes() {
 
   /* ---------- websites & social accounts ---------- */
   r.get('/websites', async (c) => c.json(await c.get('app').db.select().from(s.websites).orderBy(asc(s.websites.key))));
-  const websiteSchema = z.object({ key: z.string().regex(/^[a-z0-9-]{2,40}$/), name: z.string().trim().min(2).max(120), domain: z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/), basePath: z.string().regex(/^\/[a-z0-9/_-]*$/i).default('/'), language: z.enum(['en', 'fr']), businessUnit: z.string().max(60).optional(), ga4Property: z.string().max(60).optional(), gscProperty: z.string().max(300).optional(), drupalEnabled: z.boolean().default(true), status: z.enum(['active', 'archived']).default('active') });
+  const websiteSchema = z.object({ key: z.string().regex(/^[a-z0-9-]{2,40}$/), name: z.string().trim().min(2).max(120), domain: z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/), basePath: z.string().regex(/^\/[a-z0-9/_-]*$/i).default('/'), language: z.enum(['en', 'fr']), businessUnit: z.string().max(60).optional(), ga4Property: z.string().max(60).optional(), gscProperty: z.string().max(300).optional(), drupalEnabled: z.boolean().default(true), status: z.enum(['active', 'archived']).default('active'), settings: z.object({ countries: z.array(z.string().regex(/^[A-Z]{2}$/)).max(60).optional(), regions: z.array(z.string().max(40)).max(20).optional(), contentCategories: z.array(z.string().max(60)).max(40).optional(), conversionEvents: z.array(z.enum(EVENTS.map((e) => e.id) as [string, ...string[]])).max(20).optional() }).default({}) });
   r.post('/websites', requirePermission('integrations.manage'), async (c) => {
     const app = c.get('app');
     const d = await body(c, websiteSchema);
@@ -306,7 +323,7 @@ export function adminRoutes() {
   });
 
   r.get('/social-accounts', async (c) => c.json(await c.get('app').db.select().from(s.socialAccounts).orderBy(asc(s.socialAccounts.platform), asc(s.socialAccounts.key))));
-  const accountSchema = z.object({ key: z.string().regex(/^[a-z0-9-]{2,40}$/), platform: z.string().regex(/^[a-z_]{2,30}$/), name: z.string().trim().min(1).max(120), handle: z.string().max(200).optional(), externalId: z.string().max(120).optional(), language: z.enum(['en', 'fr']), region: z.string().max(40).optional(), businessUnit: z.string().max(60).optional(), status: z.enum(['active', 'archived']).default('active') });
+  const accountSchema = z.object({ key: z.string().regex(/^[a-z0-9-]{2,40}$/), platform: z.string().regex(/^[a-z_]{2,30}$/), name: z.string().trim().min(1).max(120), handle: z.string().max(200).optional(), externalId: z.string().max(120).optional(), language: z.enum(['en', 'fr']), region: z.string().max(40).optional(), businessUnit: z.string().max(60).optional(), status: z.enum(['active', 'archived']).default('active'), metrics: z.array(z.string().max(60)).max(30).default([]) });
   r.post('/social-accounts', requirePermission('integrations.manage'), async (c) => {
     const app = c.get('app');
     const d = await body(c, accountSchema);
@@ -335,7 +352,7 @@ export function adminRoutes() {
   r.patch('/advertising/campaigns/:id', requirePermission('integrations.manage'), async (c) => {
     const app = c.get('app');
     const id = uuidParam(c);
-    const d = await body(c, z.object({ monthlyBudget: z.number().min(0).max(10_000_000).nullable().optional(), externalId: z.string().max(120).nullable().optional(), utmCampaign: z.string().max(120).optional(), businessUnit: z.string().max(60).optional() }));
+    const d = await body(c, z.object({ monthlyBudget: z.number().min(0).max(10_000_000).nullable().optional(), externalId: z.string().max(120).nullable().optional(), utmCampaign: z.string().max(120).optional(), businessUnit: z.string().max(60).optional(), category: z.enum(['industries', 'collectivities']).optional(), objective: z.enum(['awareness', 'consideration', 'conversion']).optional() }));
     await app.db.update(s.adCampaigns).set({ ...d, updatedAt: new Date() }).where(eq(s.adCampaigns.id, id));
     await audit(c, { action: 'advertising.campaign.update', entityType: 'ad_campaign', entityId: id, details: d });
     return c.json({ ok: true });
@@ -450,7 +467,7 @@ export function adminRoutes() {
   });
   r.put('/dashboards/executive', requirePermission('dashboards.edit'), async (c) => {
     const app = c.get('app');
-    const { layout } = await body(c, z.object({ layout: z.array(z.object({ id: z.string().max(40), type: z.enum(WIDGET_TYPES), visible: z.boolean(), metrics: z.array(z.string().max(60)).max(16).optional(), title: z.string().max(80).optional() })).min(1).max(20) }));
+    const { layout } = await body(c, z.object({ layout: z.array(z.object({ id: z.string().max(40), type: z.enum(WIDGET_TYPES), visible: z.boolean(), size: z.enum(['full', 'half']).optional(), chart: z.enum(['line', 'bar']).optional(), metrics: z.array(z.string().max(60)).max(16).optional(), title: z.string().max(80).optional() })).min(1).max(20) }));
     for (const w of layout) for (const m of w.metrics ?? []) if (!getMetric(m) || getMetric(m)!.internal) throw new HttpError(422, `Unknown metric ${m}`, 'validation');
     if (new Set(layout.map((w) => w.id)).size !== layout.length) throw new HttpError(422, 'Widget ids must be unique', 'validation');
     const [existing] = await app.db.select().from(s.dashboards).where(eq(s.dashboards.key, 'executive'));
@@ -458,6 +475,13 @@ export function adminRoutes() {
     else await app.db.insert(s.dashboards).values({ orgId: app.orgId, key: 'executive', name: 'Executive overview', layout, updatedBy: currentUser(c).id });
     await audit(c, { action: 'dashboard.update', entityType: 'dashboard', entityId: 'executive', details: { widgets: layout.map((w) => `${w.type}${w.visible ? '' : ' (hidden)'}`) } });
     return c.json({ ok: true });
+  });
+
+  r.delete('/dashboards/executive', requirePermission('dashboards.edit'), async (c) => {
+    const app = c.get('app');
+    await app.db.update(s.dashboards).set({ layout: DEFAULT_EXECUTIVE_LAYOUT, updatedBy: currentUser(c).id, updatedAt: new Date() }).where(eq(s.dashboards.key, 'executive'));
+    await audit(c, { action: 'dashboard.reset', entityType: 'dashboard', entityId: 'executive' });
+    return c.json({ ok: true, layout: DEFAULT_EXECUTIVE_LAYOUT });
   });
 
   /* ---------- alert rules ---------- */
@@ -588,7 +612,7 @@ export function adminRoutes() {
   });
   r.patch('/ai', requirePermission('ai.manage'), async (c) => {
     const app = c.get('app');
-    const d = await body(c, z.object({ enabled: z.boolean().optional(), provider: z.enum(['none', 'anthropic', 'openai', 'azure_openai']).optional(), model: z.string().max(120).nullable().optional(), baseUrl: z.string().url().startsWith('https://').nullable().optional(), maxOutputTokens: z.number().int().min(100).max(4000).optional(), temperature: z.number().min(0).max(1).optional() }));
+    const d = await body(c, z.object({ enabled: z.boolean().optional(), provider: z.enum(['none', 'anthropic', 'openai', 'azure_openai']).optional(), model: z.string().max(120).nullable().optional(), baseUrl: z.string().url().startsWith('https://').nullable().optional(), maxOutputTokens: z.number().int().min(100).max(4000).optional(), temperature: z.number().min(0).max(1).optional(), monthlyTokenBudget: z.number().int().min(1000).max(100_000_000).nullable().optional(), allowedFeatures: z.array(z.enum(['executive_summary', 'recommendation_wording'])).optional(), requireHumanReview: z.boolean().optional() }));
     await app.db.update(s.aiSettings).set({ ...d, updatedAt: new Date() }).where(eq(s.aiSettings.orgId, app.orgId));
     await audit(c, { action: 'ai.settings.update', details: d });
     return c.json({ ok: true });

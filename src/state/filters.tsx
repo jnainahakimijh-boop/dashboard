@@ -30,8 +30,10 @@ export function useGlobalFilters(): GlobalFilters {
   const [sp, setSp] = useSearchParams();
   const meta = useMeta();
   const asOf = meta.data?.asOf ?? new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-  const preset = (PRESETS.includes(sp.get('p') as RangePreset) ? sp.get('p') : 'last30') as RangePreset;
-  const compare = (['previous', 'yoy', 'none'].includes(sp.get('cmp') ?? '') ? sp.get('cmp') : 'previous') as CompareMode;
+  const orgDefaults = meta.data?.org.settings;
+  const defaultPreset = (PRESETS.includes(orgDefaults?.defaultPeriod as RangePreset) ? orgDefaults!.defaultPeriod : 'last30') as RangePreset;
+  const preset = (PRESETS.includes(sp.get('p') as RangePreset) ? sp.get('p') : defaultPreset) as RangePreset;
+  const compare = (['previous', 'yoy', 'none'].includes(sp.get('cmp') ?? '') ? sp.get('cmp') : (orgDefaults?.defaultCompare ?? 'previous')) as CompareMode;
   const filtersKey = FILTER_KEYS.map((k) => sp.get(k) ?? '').join('|');
   const filters = useMemo(() => {
     const f: Filters = {};

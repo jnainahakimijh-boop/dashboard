@@ -2,7 +2,15 @@
 import type { Unit } from '@shared/metrics';
 
 type Lang = 'en' | 'fr';
-const loc = (lang: Lang) => (lang === 'fr' ? 'fr-FR' : 'en-GB');
+
+/** Organisation-wide formatting defaults (Administration → Organisation), applied once meta is loaded. */
+const overrides: { numberLocale?: string; dateFormat?: 'locale' | 'iso' } = {};
+export function configureFormatting(o: { numberLocale?: string; dateFormat?: 'locale' | 'iso' }): void {
+  overrides.numberLocale = o.numberLocale;
+  overrides.dateFormat = o.dateFormat;
+}
+const loc = (lang: Lang) => overrides.numberLocale ?? (lang === 'fr' ? 'fr-FR' : 'en-GB');
+const dloc = (lang: Lang) => (lang === 'fr' ? 'fr-FR' : 'en-GB');
 
 export function formatValue(v: number | null | undefined, unit: Unit | 'text' | undefined, lang: Lang, opts: { compact?: boolean; currency?: string } = {}): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return '—';
@@ -45,14 +53,16 @@ export function formatDelta(d: number | null | undefined, unit: Unit, lang: Lang
 
 export function formatDate(iso: string | null | undefined, lang: Lang, style: 'short' | 'medium' | 'long' = 'medium'): string {
   if (!iso) return '—';
+  if (overrides.dateFormat === 'iso') return iso.slice(0, 10);
   const d = new Date(iso.length === 10 ? `${iso}T00:00:00Z` : iso);
   const opts: Intl.DateTimeFormatOptions = style === 'short' ? { day: 'numeric', month: 'short' } : style === 'long' ? { day: 'numeric', month: 'long', year: 'numeric' } : { day: 'numeric', month: 'short', year: 'numeric' };
-  return new Intl.DateTimeFormat(loc(lang), { ...opts, timeZone: iso.length === 10 ? 'UTC' : 'Europe/Paris' }).format(d);
+  return new Intl.DateTimeFormat(dloc(lang), { ...opts, timeZone: iso.length === 10 ? 'UTC' : 'Europe/Paris' }).format(d);
 }
 
 export function formatDateTime(iso: string | null | undefined, lang: Lang): string {
   if (!iso) return '—';
-  return new Intl.DateTimeFormat(loc(lang), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Paris' }).format(new Date(iso));
+  if (overrides.dateFormat === 'iso') return new Intl.DateTimeFormat('sv-SE', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Paris' }).format(new Date(iso));
+  return new Intl.DateTimeFormat(dloc(lang), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Paris' }).format(new Date(iso));
 }
 
 export function formatRange(r: { from: string; to: string } | null | undefined, lang: Lang): string {
@@ -65,7 +75,7 @@ export function formatRange(r: { from: string; to: string } | null | undefined, 
 export function relativeTime(iso: string | null | undefined, lang: Lang): string {
   if (!iso) return '—';
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-  const rtf = new Intl.RelativeTimeFormat(loc(lang), { numeric: 'auto' });
+  const rtf = new Intl.RelativeTimeFormat(dloc(lang), { numeric: 'auto' });
   if (Math.abs(diff) < 60) return rtf.format(-Math.round(diff), 'second');
   if (Math.abs(diff) < 3600) return rtf.format(-Math.round(diff / 60), 'minute');
   if (Math.abs(diff) < 86400) return rtf.format(-Math.round(diff / 3600), 'hour');

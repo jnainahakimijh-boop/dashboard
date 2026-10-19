@@ -13,18 +13,23 @@ export interface Prefs {
 const KEY = 'vdi.prefs';
 const DEFAULTS: Prefs = { language: 'fr', theme: 'light', density: 'comfortable', sidebarCollapsed: false };
 
-function read(): Prefs {
+function stored(): Partial<Prefs> {
   try {
-    const raw = JSON.parse(localStorage.getItem(KEY) ?? '{}');
-    return { ...DEFAULTS, ...raw };
+    return JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<Prefs>;
   } catch {
-    return DEFAULTS;
+    return {};
   }
+}
+
+function read(): Prefs {
+  return { ...DEFAULTS, ...stored() };
 }
 
 interface Ctx {
   prefs: Prefs;
   setPrefs: (p: Partial<Prefs>) => void;
+  /** Organisation default theme: applies only while the user has not chosen a theme themselves. */
+  applyOrgTheme: (theme: Theme | undefined) => void;
 }
 const PrefsCtx = createContext<Ctx | null>(null);
 
@@ -58,7 +63,12 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
     }
   }, [prefs.theme, prefs.density, prefs.language]);
 
-  const value = useMemo(() => ({ prefs, setPrefs }), [prefs, setPrefs]);
+  const applyOrgTheme = useCallback((theme: Theme | undefined) => {
+    if (!theme || stored().theme) return;
+    set((cur) => (cur.theme === theme ? cur : { ...cur, theme }));
+  }, []);
+
+  const value = useMemo(() => ({ prefs, setPrefs, applyOrgTheme }), [prefs, setPrefs, applyOrgTheme]);
   return <PrefsCtx.Provider value={value}>{children}</PrefsCtx.Provider>;
 }
 
