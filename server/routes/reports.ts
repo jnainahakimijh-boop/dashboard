@@ -8,7 +8,7 @@ import { audit } from '../audit';
 import { HttpError, currentUser, type HonoEnv } from '../context';
 import { reportRuns, reportSchedules, reportTemplates, users } from '../db/schema';
 import { frequencySchema, nextRun, describeFrequency, type Frequency } from '../jobs/schedule';
-import { REPORT_TYPES, reportConfigSchema, type ReportType } from '../reports/build';
+import { REPORT_TYPES, buildReport, reportCatalog, reportConfigSchema, type ReportType } from '../reports/build';
 import { renderTable } from '../reports/render';
 import { generateReportRun, reportMime, runReportSchedule, type ReportFormat } from '../reports/service';
 import { body, notFound, uuidParam } from './util';
@@ -50,6 +50,24 @@ export function reportRoutes() {
     await app.db.delete(reportTemplates).where(eq(reportTemplates.id, id));
     await audit(c, { action: 'report.template.delete', entityType: 'report_template', entityId: id });
     return c.json({ ok: true });
+  });
+
+  r.get('/catalog', (c) => c.json(reportCatalog()));
+
+  /** Builds the report content without storing a file, for on-screen preview. */
+  r.post('/preview', requirePermission('reports.create'), async (c) => {
+    const app = c.get('app');
+    const user = currentUser(c);
+    const d = await body(c, z.object({ templateId: z.string().uuid().optional(), type: z.enum(REPORT_TYPES).optional(), config: reportConfigSchema.partial().optional() }));
+    let type: ReportType = d.type ?? 'custom';
+    let config = d.config ?? {};
+    if (d.templateId) {
+      const [tpl] = await app.db.select().from(reportTemplates).where(eq(reportTemplates.id, d.templateId));
+      if (!tpl) notFound('Template');
+      type = tpl.type as ReportType;
+      config = { ...(tpl.config as object), ...config };
+    }
+    return c.json(await buildReport(app, user, type, config, user.name));
   });
 
   r.post('/generate', requirePermission('reports.create'), async (c) => {

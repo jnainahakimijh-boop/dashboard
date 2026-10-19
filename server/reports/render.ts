@@ -22,6 +22,8 @@ const NAVY = '#0b172a';
 const ACCENT = '#e11d2e';
 const MUTED = '#5b6678';
 const LINE = '#d9e0ea';
+/** Bullet markers; the wording of each statement carries the direction, the colour only reinforces it. */
+const TONE = { positive: '#15803d', negative: '#b91c1c', warning: '#b45309', neutral: '#5b6678' } as const;
 const BLUE = '#2563eb';
 
 function cell(v: string | number | null | undefined, unit: Unit | 'text' | undefined, lang: Lang): string {
@@ -39,8 +41,9 @@ function metaLines(c: ReportContent): Array<[string, string]> {
   return [
     [T('Report', 'Rapport'), c.title],
     [T('Period', 'Période'), fmtRange(c.period, c.language)],
-    [T('Comparison', 'Comparaison'), c.comparePeriod ? `${fmtRange(c.comparePeriod, c.language)} (${c.compare})` : T('none', 'aucune')],
+    [T('Comparison', 'Comparaison'), c.comparePeriod ? `${fmtRange(c.comparePeriod, c.language)} (${c.compare === 'yoy' ? T('same period last year', 'même période l’an dernier') : T('previous period', 'période précédente')})` : T('none', 'aucune')],
     [T('Filters', 'Filtres'), filters || T('none', 'aucun')],
+    [T('Data available up to', 'Données disponibles jusqu’au'), `${new Intl.DateTimeFormat(c.language === 'fr' ? 'fr-FR' : 'en-GB', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${c.asOf}T00:00:00Z`))} (${T('latest complete day across sources; some sources lag — see notes', 'dernier jour complet toutes sources ; certaines sources ont du retard — voir les remarques')})`],
     [T('Data mode', 'Mode de données'), c.dataModes.map((m) => m.toUpperCase()).join(', ') || '—'],
     [T('Sources', 'Sources'), c.sources.map((s) => SOURCE_LABELS[s as SourceKey] ?? s).join(', ')],
     [T('Generated', 'Généré le'), new Intl.DateTimeFormat(c.language === 'fr' ? 'fr-FR' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Paris' }).format(new Date(c.generatedAt)) + ' (Europe/Paris)'],
@@ -72,9 +75,10 @@ export async function renderPdf(c: ReportContent): Promise<Buffer> {
     doc.roundedRect(doc.page.width - 48 - 110, 30, 110, 24, 4).fill(ACCENT);
     doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(10).text(T('DEMO DATA', 'DONNÉES DÉMO'), doc.page.width - 48 - 110, 37, { width: 110, align: 'center' });
   }
+  doc.x = 48;
   doc.y = 110;
   doc.fillColor(MUTED).font('Helvetica').fontSize(8.5);
-  for (const [k, v] of metaLines(c).slice(1, 5)) text(`${k}: ${v}`, { width: W });
+  for (const [k, v] of metaLines(c).slice(1, 6)) text(`${k}: ${v}`, { width: W });
   for (const n of c.notes) {
     doc.moveDown(0.3);
     doc.fillColor(ACCENT).font('Helvetica-Bold').fontSize(9);
@@ -182,7 +186,8 @@ export async function renderPdf(c: ReportContent): Promise<Buffer> {
     doc.moveDown(0.6);
   };
 
-  if (c.summary) {
+  // Legacy block: only for reports that use the single 'summary' section
+  if (c.summary && c.sections.some((x) => x.id === 'summary')) {
     heading(T('Executive summary', 'Synthèse'));
     const blocks: Array<[string, typeof c.summary.changed]> = [
       [T('What changed', 'Ce qui a changé'), c.summary.changed],
@@ -209,6 +214,31 @@ export async function renderPdf(c: ReportContent): Promise<Buffer> {
   for (const s of c.sections) {
     if (s.id === 'summary') continue;
     heading(s.title);
+    if (s.items?.length) {
+      doc.font('Helvetica').fontSize(9.5);
+      for (const it of s.items) {
+        ensure(22);
+        const y0 = doc.y + 3.5;
+        doc.circle(52, y0, 2).fill(TONE[it.tone]);
+        doc.fillColor('#1f2937');
+        doc.text(pdfSafe(it.text), 60, doc.y, { width: W - 12 });
+        doc.x = 48;
+        doc.moveDown(0.2);
+      }
+      doc.moveDown(0.3);
+    }
+    if (s.quote) {
+      ensure(40);
+      const top = doc.y;
+      doc.font('Helvetica').fontSize(9.5).fillColor('#1f2937');
+      doc.text(pdfSafe(s.quote.body), 58, doc.y, { width: W - 10 });
+      doc.x = 48;
+      doc.moveTo(48, top).lineTo(48, doc.y).lineWidth(2).strokeColor(LINE).stroke();
+      doc.moveDown(0.3);
+      doc.font('Helvetica-Oblique').fontSize(8).fillColor(MUTED);
+      text(`${T('Written by', 'Rédigé par')} ${s.quote.author} — ${T('author commentary, not generated from data', 'commentaire de l’auteur, non généré à partir des données')}`, { width: W });
+      doc.moveDown(0.4);
+    }
     if (s.kpis?.length) {
       table({
         title: '',
@@ -261,6 +291,8 @@ export async function renderPdf(c: ReportContent): Promise<Buffer> {
   const range = doc.bufferedPageRange();
   for (let i = range.start; i < range.start + range.count; i++) {
     doc.switchToPage(i);
+    // the footer sits inside the bottom margin; without this PDFKit would start a new page for it
+    doc.page.margins.bottom = 0;
     const yFoot = doc.page.height - 40;
     doc.font('Helvetica').fontSize(7.5).fillColor(MUTED);
     doc.text(pdfSafe(`${T('Internal use', 'Usage interne')} · Veolia Digital Intelligence${c.dataModes.includes('demo') ? ` · ${T('DEMO DATA', 'DONNÉES DÉMO')}` : ''}`), 48, yFoot, { width: W / 2, lineBreak: false });
@@ -299,8 +331,15 @@ export async function renderXlsx(c: ReportContent): Promise<Buffer> {
   for (const [k, v] of metaLines(c)) meta.addRow([k, v]);
   for (const n of c.notes) meta.addRow([T('Note', 'Remarque'), n]);
   meta.getColumn(1).font = { bold: true };
-  if (c.summary) {
+  const statements = c.sections.flatMap((sec) => [...(sec.items ?? []).map((it) => [sec.title, it.text] as [string, string]), ...(sec.quote ? [[sec.title, `${sec.quote.body}\n— ${sec.quote.author}`] as [string, string]] : [])]);
+  if (statements.length) {
     const ws = wb.addWorksheet(T('Summary', 'Synthèse'));
+    ws.columns = [{ width: 34 }, { width: 120 }];
+    ws.addRow([T('Section', 'Section'), T('Statement', 'Énoncé')]).font = { bold: true };
+    for (const r of statements) ws.addRow(r).alignment = { wrapText: true, vertical: 'top' };
+  }
+  if (c.summary && c.sections.some((x) => x.id === 'summary')) {
+    const ws = wb.addWorksheet(T('Summary (legacy)', 'Synthèse (ancienne)'));
     ws.columns = [{ width: 26 }, { width: 120 }];
     const add = (title: string, items: typeof c.summary.changed) => items.forEach((it) => ws.addRow([title, it.text[lang]]));
     add(T('What changed', 'Ce qui a changé'), c.summary.changed);
@@ -381,6 +420,12 @@ export function renderCsv(c: ReportContent): Buffer {
   for (const [k, v] of metaLines(c)) row('#', k, v);
   for (const n of c.notes) row('#', 'note', n);
   lines.push('');
+  const statements = c.sections.flatMap((sec) => [...(sec.items ?? []).map((it) => [sec.title, it.text]), ...(sec.quote ? [[sec.title, `${sec.quote.body} — ${sec.quote.author}`]] : [])]);
+  if (statements.length) {
+    row('section', 'statement');
+    for (const st of statements) row(...st);
+    lines.push('');
+  }
   const kpis = c.sections.flatMap((s) => (s.kpis ?? []).map((k) => ({ section: s.title, ...k })));
   if (kpis.length) {
     row('section', 'metric', 'label', 'value', 'comparison', 'absolute_change', 'pct_change', 'data_mode', 'sources', 'notes');

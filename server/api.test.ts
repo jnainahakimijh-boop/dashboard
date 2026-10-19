@@ -254,6 +254,34 @@ describe('reports & exports', () => {
     });
   }
 
+  it('executive report keeps the seven-part structure, even when sections are narrowed', async () => {
+    const res = await as(ANALYST).send('POST', '/api/reports/preview', { type: 'executive', config: { sections: ['ads'], commentary: 'Board note', language: 'en' } });
+    expect(res.status).toBe(200);
+    const c = (await res.json()) as { sections: Array<{ id: string; title: string; items?: unknown[]; quote?: { body: string }; appendix?: boolean }> };
+    expect(c.sections.map((x) => x.id)).toEqual(['exec_summary', 'commentary', 'highlights', 'changes', 'drivers', 'risks', 'actions', 'limitations', 'ads']);
+    expect(c.sections.find((x) => x.id === 'commentary')?.quote?.body).toBe('Board note');
+    expect(c.sections.find((x) => x.id === 'ads')?.appendix).toBe(true);
+    const lim = c.sections.find((x) => x.id === 'limitations')!;
+    expect(JSON.stringify(lim.items)).toContain('DEMO');
+  });
+
+  it('builds a GEO visibility report from the monitored sample', async () => {
+    const res = await as(ANALYST).send('POST', '/api/reports/preview', { type: 'geo', config: { language: 'en' } });
+    const c = (await res.json()) as { sections: Array<{ id: string; tables?: Array<{ rows: unknown[] }> }>; dataModes: string[] };
+    expect(c.sections.find((x) => x.id === 'geo_topics')!.tables![0].rows.length).toBeGreaterThan(0);
+    expect(c.dataModes).toContain('demo');
+    expect((await as(EXEC).send('POST', '/api/reports/preview', { type: 'geo' })).status).toBe(403);
+  });
+
+  it('accepts quarterly schedules', async () => {
+    const tpl = ((await (await as(ANALYST).get('/api/reports/templates')).json()) as Array<{ id: string }>)[0];
+    const res = await as(ANALYST).send('POST', '/api/reports/schedules', { templateId: tpl.id, name: 'Quarterly review', frequency: { kind: 'quarterly', day: 3, time: '08:00' }, format: 'pdf', recipients: [] });
+    expect(res.status).toBe(201);
+    const row = (await res.json()) as { nextRunAt: string };
+    const next = new Date(row.nextRunAt);
+    expect([0, 3, 6, 9]).toContain(next.getUTCMonth());
+  });
+
   it('executive viewers cannot generate reports', async () => {
     expect((await as(EXEC).send('POST', '/api/reports/generate', { type: 'website', format: 'csv' })).status).toBe(403);
   });

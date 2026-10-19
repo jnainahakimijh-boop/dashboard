@@ -342,7 +342,7 @@ export function Select({ className, children, ...rest }: SelectHTMLAttributes<HT
   );
 }
 
-export function Switch({ checked, onChange, label, disabled, description }: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean; description?: string }) {
+export function Switch({ checked, onChange, label, disabled, description, hideLabel }: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean; description?: string; hideLabel?: boolean }) {
   const id = useId();
   return (
     <div className="flex items-start gap-3">
@@ -357,7 +357,7 @@ export function Switch({ checked, onChange, label, disabled, description }: { ch
       >
         <span className={clsx('inline-block size-4 rounded-full bg-white shadow transition-transform', checked ? 'translate-x-4.5' : 'translate-x-0.5')} />
       </button>
-      <label htmlFor={id} className="text-sm">
+      <label htmlFor={id} className={clsx('text-sm', hideLabel && 'sr-only')}>
         <span className="font-medium text-t1">{label}</span>
         {description && <span className="block text-[12.5px] text-t2">{description}</span>}
       </label>
@@ -384,13 +384,13 @@ export function Segmented<T extends string>({ value, onChange, options, label, s
   );
 }
 
-export function Checkbox({ checked, onChange, label, id }: { checked: boolean; onChange: (v: boolean) => void; label: ReactNode; id?: string }) {
+export function Checkbox({ checked, onChange, label, id, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: ReactNode; id?: string; disabled?: boolean }) {
   const auto = useId();
   const cid = id ?? auto;
   return (
-    <label htmlFor={cid} className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-sm hover:bg-hov">
+    <label htmlFor={cid} className={clsx('flex items-center gap-2 rounded-md px-1.5 py-1 text-sm', disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:bg-hov')}>
       <span className={clsx('flex size-4 shrink-0 items-center justify-center rounded border', checked ? 'border-acc bg-acc text-white' : 'border-brds bg-card')}>{checked && <Check className="size-3" aria-hidden />}</span>
-      <input id={cid} type="checkbox" className="sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input id={cid} type="checkbox" className="sr-only" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       <span className="min-w-0 truncate">{label}</span>
     </label>
   );

@@ -1,18 +1,19 @@
 /** Builds report content (format-independent) from the semantic engine. */
-import { desc, inArray } from 'drizzle-orm';
+import { desc, eq, inArray } from 'drizzle-orm';
 import { addDays, comparisonRange, defaultGranularity, resolvePreset, type CompareMode, type RangePreset } from '@shared/calendar';
-import { CHANNELS, SOCIAL_ACCOUNTS, label, type L10n } from '@shared/catalog';
+import { CHANNELS, GEO_PROMPTS, GEO_PROVIDERS, SOCIAL_ACCOUNTS, TOPICS, label, type L10n } from '@shared/catalog';
 import { analyticsQuerySchema, type DimensionId, type Filters, type MetricResult } from '@shared/filters';
 import { getMetric, type Unit } from '@shared/metrics';
 import { z } from 'zod';
 import type { AppContext, SessionUser } from '../context';
-import { recommendations, seoIssues } from '../db/schema';
+import { alertEvents, geoPrompts, recommendations, seoIssues } from '../db/schema';
+import { RULES as SEO_RULES } from '../seo/rules';
 import { runQuery } from '../analytics/engine';
-import { buildExecutiveSummary, type ExecutiveSummary } from '../insights/summary';
+import { buildExecutiveSummary, type ExecutiveSummary, type SummaryItem } from '../insights/summary';
 import { campaignPacing } from '../insights/ads';
 import { fmtRange, type Lang } from '../insights/format';
 
-export const REPORT_TYPES = ['executive', 'website', 'social', 'seo', 'ads', 'content', 'custom'] as const;
+export const REPORT_TYPES = ['executive', 'website', 'social', 'seo', 'geo', 'ads', 'content', 'custom'] as const;
 export type ReportType = (typeof REPORT_TYPES)[number];
 
 export const reportConfigSchema = z.object({
@@ -26,6 +27,10 @@ export const reportConfigSchema = z.object({
   groupBy: z.string().optional(),
   language: z.enum(['en', 'fr']).default('fr'),
   title: z.string().max(200).optional(),
+  /** Metrics drawn as trend charts (one chart each; one axis per chart). */
+  chartMetrics: z.array(z.string()).max(6).optional(),
+  /** Written commentary by the report author. Reproduced verbatim and labelled as human-written. */
+  commentary: z.string().max(4000).optional(),
 });
 export type ReportConfig = z.infer<typeof reportConfigSchema>;
 
@@ -56,9 +61,19 @@ export interface ChartBlock {
   points: Array<{ label: string; value: number | null; compare: number | null }>;
 }
 
+export interface ReportBullet {
+  text: string;
+  tone: 'positive' | 'negative' | 'neutral' | 'warning';
+}
+
 export interface ReportSection {
   id: string;
   title: string;
+  /** Bulleted statements (executive structure); each is backed by computed figures. */
+  items?: ReportBullet[];
+  appendix?: boolean;
+  /** Human-written commentary, reproduced verbatim. */
+  quote?: { author: string; body: string };
   kpis?: KpiRow[];
   tables?: TableBlock[];
   charts?: ChartBlock[];
@@ -75,6 +90,8 @@ export interface ReportContent {
   filters: Filters;
   generatedAt: string;
   generatedBy: string;
+  /** Latest day with data (freshness). */
+  asOf: string;
   organisation: string;
   dataModes: string[];
   sources: string[];
@@ -83,8 +100,74 @@ export interface ReportContent {
   notes: string[];
 }
 
+/** The seven-part executive structure, followed by channel appendices. */
+export const EXECUTIVE_STRUCTURE = ['exec_summary', 'highlights', 'changes', 'drivers', 'risks', 'actions', 'limitations'] as const;
+
+export const SECTION_IDS: Record<ReportType, string[]> = {
+  executive: [...EXECUTIVE_STRUCTURE, 'channels', 'search', 'social', 'ads', 'geo'],
+  website: ['kpis', 'trend', 'channels', 'pages', 'conversions', 'quality', 'recommendations'],
+  social: ['kpis', 'trend', 'platforms', 'top_posts', 'recommendations'],
+  seo: ['kpis', 'trend', 'keywords', 'issues', 'geo', 'recommendations'],
+  geo: ['kpis', 'trend', 'geo_topics', 'geo_providers', 'recommendations'],
+  ads: ['kpis', 'trend', 'campaigns', 'pacing', 'conversions_compare', 'recommendations'],
+  content: ['kpis', 'trend', 'pages', 'top_posts'],
+  custom: ['summary', 'kpis', 'trend', 'breakdown', 'channels', 'pages', 'search', 'social', 'ads', 'geo', 'recommendations'],
+};
+
+export const SECTION_LABELS: Record<string, L10n> = {
+  exec_summary: { en: '1. Executive summary', fr: '1. Synthèse' },
+  highlights: { en: '2. Performance highlights', fr: '2. Faits marquants de performance' },
+  changes: { en: '3. Significant changes', fr: '3. Évolutions significatives' },
+  drivers: { en: '4. Possible drivers', fr: '4. Facteurs possibles' },
+  risks: { en: '5. Risks and opportunities', fr: '5. Risques et opportunités' },
+  actions: { en: '6. Recommended actions', fr: '6. Actions recommandées' },
+  limitations: { en: '7. Data limitations', fr: '7. Limites des données' },
+  summary: { en: 'Executive summary (compact)', fr: 'Synthèse (compacte)' },
+  kpis: { en: 'Key indicators', fr: 'Indicateurs clés' },
+  trend: { en: 'Trend charts', fr: 'Graphiques d’évolution' },
+  channels: { en: 'Website traffic by channel', fr: 'Trafic du site par canal' },
+  search: { en: 'Organic search', fr: 'Recherche organique' },
+  social: { en: 'Social media', fr: 'Réseaux sociaux' },
+  ads: { en: 'ChatGPT Ads', fr: 'ChatGPT Ads' },
+  geo: { en: 'AI answer visibility (GEO)', fr: 'Visibilité dans les réponses IA (GEO)' },
+  pages: { en: 'Top landing pages', fr: 'Principales pages de destination' },
+  conversions: { en: 'Conversions', fr: 'Conversions' },
+  quality: { en: 'Measurement quality', fr: 'Qualité de la mesure' },
+  platforms: { en: 'Social accounts', fr: 'Comptes sociaux' },
+  top_posts: { en: 'Top posts', fr: 'Meilleures publications' },
+  keywords: { en: 'Top queries', fr: 'Principales requêtes' },
+  issues: { en: 'Technical SEO issues', fr: 'Anomalies SEO techniques' },
+  geo_topics: { en: 'AI visibility by topic', fr: 'Visibilité IA par thème' },
+  geo_providers: { en: 'GEO providers and methods', fr: 'Fournisseurs et méthodes GEO' },
+  campaigns: { en: 'Campaigns', fr: 'Campagnes' },
+  pacing: { en: 'Budget pacing', fr: 'Rythme budgétaire' },
+  conversions_compare: { en: 'Conversions — two systems', fr: 'Conversions — deux systèmes' },
+  recommendations: { en: 'Open recommendations', fr: 'Recommandations ouvertes' },
+  breakdown: { en: 'Breakdown table', fr: 'Tableau de répartition' },
+};
+
+/** Recommendation rules relevant to each report type (executive and custom reports list all open recommendations). */
+const REC_RULES: Partial<Record<ReportType, string[]>> = {
+  website: ['tracking_gap', 'declining_pages', 'ai_referral_growth'],
+  social: ['social_format', 'x_audience_decline'],
+  seo: ['seo_high_issues', 'search_position_drop', 'declining_pages'],
+  geo: ['geo_missing_page', 'geo_low_visibility', 'ai_referral_growth'],
+  ads: ['ads_overpacing', 'ads_zero_conversion'],
+  content: ['declining_pages', 'social_format', 'geo_missing_page'],
+};
+/** Rules whose recommendations describe an opportunity rather than a risk. */
+const OPPORTUNITY_RULES = ['ai_referral_growth', 'geo_missing_page', 'social_format'];
+const PRIORITY_LABEL: Record<string, L10n> = { critical: { en: 'Critical', fr: 'Critique' }, high: { en: 'High', fr: 'Élevée' }, medium: { en: 'Medium', fr: 'Moyenne' }, low: { en: 'Low', fr: 'Faible' } };
+const STATUS_LABEL: Record<string, L10n> = {
+  new: { en: 'New', fr: 'Nouvelle' },
+  under_review: { en: 'Under review', fr: 'En revue' },
+  approved: { en: 'Approved', fr: 'Approuvée' },
+  in_progress: { en: 'In progress', fr: 'En cours' },
+};
+
 const DEFAULT_SECTIONS: Record<ReportType, string[]> = {
-  executive: ['summary', 'kpis', 'channels', 'search', 'social', 'ads', 'geo', 'recommendations'],
+  executive: SECTION_IDS.executive,
+  geo: ['kpis', 'trend', 'geo_topics', 'geo_providers'],
   website: ['kpis', 'trend', 'channels', 'pages', 'conversions', 'quality'],
   social: ['kpis', 'platforms', 'top_posts'],
   seo: ['kpis', 'trend', 'keywords', 'issues', 'geo'],
@@ -98,6 +181,7 @@ const TYPE_KPIS: Record<ReportType, string[]> = {
   website: ['sessions', 'users', 'engaged_sessions', 'engagement_rate', 'views', 'key_events', 'conversions', 'conversion_rate', 'form_submissions', 'ai_referral_sessions'],
   social: ['social_impressions', 'social_engagements', 'social_engagement_rate', 'social_link_clicks', 'social_posts', 'followers', 'followers_net', 'yt_views', 'yt_watch_minutes'],
   seo: ['organic_clicks', 'organic_impressions', 'organic_ctr', 'avg_position', 'keyword_visibility', 'non_branded_clicks', 'geo_mention_rate', 'geo_citation_rate'],
+  geo: ['geo_mention_rate', 'geo_citation_rate', 'geo_measurements', 'ai_referral_sessions', 'ai_referral_share'],
   ads: ['ads_spend', 'ads_impressions', 'ads_clicks', 'ads_ctr', 'ads_cpc', 'ads_conversions', 'ads_cpa', 'ads_ga_sessions', 'ads_ga_key_events'],
   content: ['sessions', 'engagement_rate', 'social_engagement_rate', 'yt_views'],
   custom: ['sessions'],
@@ -163,15 +247,138 @@ export async function buildReport(app: AppContext, user: SessionUser | null, typ
       };
     });
   const T = (en: string, fr: string) => (lang === 'fr' ? fr : en);
-  const sectionsWanted = cfg.sections.length ? cfg.sections : DEFAULT_SECTIONS[type];
+  const chosen = (cfg.sections.length ? cfg.sections : DEFAULT_SECTIONS[type]).filter((x) => SECTION_IDS[type].includes(x));
+  // The executive report always keeps its seven-part structure; only appendices are optional.
+  const sectionsWanted = type === 'executive' ? [...EXECUTIVE_STRUCTURE, ...chosen.filter((x) => !(EXECUTIVE_STRUCTURE as readonly string[]).includes(x))] : chosen;
   const kpiList = cfg.metrics?.length ? cfg.metrics.filter((m) => getMetric(m)) : TYPE_KPIS[type];
   const sections: ReportSection[] = [];
   let summary: ExecutiveSummary | null = null;
 
+  const isExec = (id: string) => (EXECUTIVE_STRUCTURE as readonly string[]).includes(id);
+  if (sectionsWanted.some((x) => x === 'summary' || isExec(x))) summary = await buildExecutiveSummary(app, user, { from: period.from, to: period.to, compare: cfg.compare, filters, metrics: kpiList });
+  const bullets = (items: SummaryItem[]): ReportBullet[] => items.map((i) => ({ text: L(i.text), tone: i.tone }));
+  let openRecsCache: Array<typeof recommendations.$inferSelect> | null = null;
+  const openRecs = async () => {
+    if (!openRecsCache) {
+      const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+      const rows = await app.db.select().from(recommendations).where(inArray(recommendations.status, ['new', 'under_review', 'approved', 'in_progress'])).orderBy(desc(recommendations.updatedAt));
+      openRecsCache = rows.filter((r) => !REC_RULES[type] || (r.ruleKey !== null && REC_RULES[type]!.includes(r.ruleKey))).sort((a, b) => order[a.priority] - order[b.priority]);
+    }
+    return openRecsCache;
+  };
+  const recTitle = (r: typeof recommendations.$inferSelect) => (lang === 'fr' ? (r.titleFr ?? r.title) : r.title);
+  const recTable = (rows: Array<typeof recommendations.$inferSelect>): TableBlock => ({
+    title: T('Open recommendations (Insights & recommendations)', 'Recommandations ouvertes (Analyses & recommandations)'),
+    columns: [
+      { key: 'title', label: T('Recommendation', 'Recommandation'), unit: 'text' },
+      { key: 'priority', label: T('Priority', 'Priorité'), unit: 'text' },
+      { key: 'status', label: T('Status', 'Statut'), unit: 'text' },
+    ],
+    rows: rows.slice(0, 10).map((r) => ({ priority: PRIORITY_LABEL[r.priority]?.[lang] ?? r.priority, title: recTitle(r), status: STATUS_LABEL[r.status]?.[lang] ?? r.status })),
+  });
+  const n = (id: string) => `${EXECUTIVE_STRUCTURE.indexOf(id as (typeof EXECUTIVE_STRUCTURE)[number]) + 1}. `;
+  const commentary = cfg.commentary?.trim();
+  const commentarySection = (): ReportSection => ({ id: 'commentary', title: T('Commentary', 'Commentaire'), quote: { author: generatedBy, body: commentary! } });
+  if (commentary && !sectionsWanted.includes('exec_summary')) sections.push(commentarySection());
+
   for (const s of sectionsWanted) {
     switch (s) {
+      case 'exec_summary': {
+        const recs = await openRecs();
+        const urgent = recs.filter((r) => r.priority === 'critical' || r.priority === 'high').length;
+        const openAlerts = await app.db.select({ id: alertEvents.id }).from(alertEvents).where(eq(alertEvents.status, 'open'));
+        const items = bullets(summary!.changed.slice(0, 3));
+        items.push({
+          text: T(`${urgent} high-priority recommendation(s) and ${openAlerts.length} open alert(s) at the time of generation.`, `${urgent} recommandation(s) prioritaire(s) et ${openAlerts.length} alerte(s) ouverte(s) au moment de la génération.`),
+          tone: urgent || openAlerts.length ? 'warning' : 'neutral',
+        });
+        sections.push({
+          id: s,
+          title: n(s) + T('Executive summary', 'Synthèse'),
+          items,
+          text: [T('All figures are computed deterministically from the platform’s metric layer. Statements describe changes and associations, not proven causes.', 'Tous les chiffres sont calculés de façon déterministe par la couche de métriques de la plateforme. Les énoncés décrivent des évolutions et des associations, pas des causes démontrées.')],
+        });
+        if (commentary) sections.push(commentarySection());
+        break;
+      }
+      case 'highlights': {
+        const wanted = (cfg.chartMetrics?.length ? cfg.chartMetrics : kpiList.slice(0, 2)).filter((m) => getMetric(m));
+        const series = wanted.length ? Q({ metrics: wanted, granularity: defaultGranularity(period) }) : [];
+        sections.push({
+          id: s,
+          title: n(s) + T('Performance highlights', 'Faits marquants de performance'),
+          kpis: kpiRows(Q({ metrics: kpiList })),
+          charts: series.map((r) => ({ title: L(getMetric(r.metric)!.label), unit: getMetric(r.metric)!.unit, points: (r.series ?? []).map((p) => ({ label: p.key, value: p.value, compare: p.compare })) })),
+        });
+        break;
+      }
+      case 'changes':
+        sections.push({ id: s, title: n(s) + T('Significant changes', 'Évolutions significatives'), items: bullets(summary!.changed) });
+        break;
+      case 'drivers':
+        sections.push({
+          id: s,
+          title: n(s) + T('Possible drivers', 'Facteurs possibles'),
+          items: bullets(summary!.drivers),
+          text: [T('Contributions of segments to the overall change. They indicate where the change happened, not why: treat them as hypotheses to verify.', 'Contributions des segments à l’évolution globale. Elles indiquent où l’évolution s’est produite, pas pourquoi : à traiter comme des hypothèses à vérifier.')],
+        });
+        break;
+      case 'risks': {
+        const recs = await openRecs();
+        const opportunities = recs.filter((r) => r.ruleKey && OPPORTUNITY_RULES.includes(r.ruleKey)).map((r) => ({ text: `${T('Opportunity', 'Opportunité')} — ${recTitle(r)}`, tone: 'positive' as const }));
+        const risks = bullets(summary!.attention).map((b) => ({ ...b, text: `${T('Risk', 'Risque')} — ${b.text}` }));
+        sections.push({ id: s, title: n(s) + T('Risks and opportunities', 'Risques et opportunités'), items: [...risks, ...opportunities] });
+        break;
+      }
+      case 'actions': {
+        const recs = await openRecs();
+        sections.push({ id: s, title: n(s) + T('Recommended actions', 'Actions recommandées'), items: bullets(summary!.actions), tables: recs.length ? [recTable(recs)] : [] });
+        break;
+      }
+      case 'limitations':
+        // filled after all sections, so that data modes of every section are known
+        sections.push({ id: s, title: n(s) + T('Data limitations', 'Limites des données'), items: bullets(summary!.limitations) });
+        break;
+      case 'geo_topics':
+      case 'geo_providers': {
+        const rows = (ctx.dataset.geo?.rows ?? []).filter((x) => x.date >= period.from && x.date <= period.to);
+        if (ctx.dataset.geo) modes.add(ctx.dataset.geo.origin === 'demo' ? 'demo' : 'connected');
+        sources.add('geo');
+        const promptRows = await app.db.select({ key: geoPrompts.key, topic: geoPrompts.topic }).from(geoPrompts);
+        const topicOf = new Map<string, string>([...GEO_PROMPTS.map((g) => [g.id, g.topic] as [string, string]), ...promptRows.map((g) => [g.key, g.topic] as [string, string])]);
+        const by = new Map<string, typeof rows>();
+        for (const r of rows) {
+          const k = s === 'geo_topics' ? (topicOf.get(r.prompt) ?? 'other') : r.provider;
+          by.set(k, [...(by.get(k) ?? []), r]);
+        }
+        const rate = (xs: typeof rows, f: (x: (typeof rows)[number]) => boolean) => {
+          const ok = xs.filter((x) => x.status !== 'failed');
+          return ok.length ? ok.filter(f).length / ok.length : null;
+        };
+        const keyLabel = (k: string) => (s === 'geo_topics' ? L(TOPICS.find((t) => t.id === k)?.name ?? { en: k, fr: k }) : (GEO_PROVIDERS.find((p) => p.id === k)?.name ?? k));
+        sections.push({
+          id: s,
+          title: s === 'geo_topics' ? T('AI answer visibility by topic', 'Visibilité IA par thème') : T('Providers and methods', 'Fournisseurs et méthodes'),
+          tables: [
+            {
+              title: T('Monitored prompt sample only — not all AI usage', 'Échantillon de prompts suivi uniquement — pas l’ensemble des usages de l’IA'),
+              columns: [
+                { key: 'key', label: s === 'geo_topics' ? T('Topic', 'Thème') : T('Provider', 'Fournisseur'), unit: 'text' },
+                { key: 'n', label: T('Completed measurements', 'Mesures abouties'), unit: 'count' },
+                { key: 'failed', label: T('Failed', 'Échecs'), unit: 'count' },
+                { key: 'mention', label: T('Mention rate', 'Taux de mention'), unit: 'percent' },
+                { key: 'citation', label: T('Citation rate', 'Taux de citation'), unit: 'percent' },
+              ],
+              rows: [...by.entries()]
+                .map(([k, xs]) => ({ key: keyLabel(k), n: xs.filter((x) => x.status !== 'failed').length, failed: xs.filter((x) => x.status === 'failed').length, mention: rate(xs, (x) => x.mentioned), citation: rate(xs, (x) => x.cited) }))
+                .sort((a, b) => b.n - a.n),
+              note: Object.keys(filters).length ? T('Site, channel and campaign filters do not apply to GEO measurements.', 'Les filtres site, canal et campagne ne s’appliquent pas aux mesures GEO.') : undefined,
+            },
+          ],
+        });
+        break;
+      }
       case 'summary':
-        summary = await buildExecutiveSummary(app, user, { from: period.from, to: period.to, compare: cfg.compare, filters, metrics: kpiList });
         sections.push({ id: 'summary', title: T('Executive summary', 'Synthèse') });
         break;
       case 'kpis':
@@ -179,9 +386,10 @@ export async function buildReport(app: AppContext, user: SessionUser | null, typ
         break;
       case 'trend': {
         const g = defaultGranularity(period);
-        const main = kpiList[0];
-        const r = Q({ metrics: [main], granularity: g })[0];
-        sections.push({ id: 'trend', title: T('Trend', 'Évolution'), charts: [{ title: L(getMetric(main)!.label), unit: getMetric(main)!.unit, points: (r.series ?? []).map((p) => ({ label: p.key, value: p.value, compare: p.compare })) }] });
+        const wanted = (cfg.chartMetrics?.length ? cfg.chartMetrics : [kpiList[0]]).filter((m) => getMetric(m));
+        const res = wanted.length ? Q({ metrics: wanted, granularity: g }) : [];
+        res.forEach((r) => modes.add(r.meta.mode));
+        sections.push({ id: 'trend', title: T('Trend', 'Évolution'), charts: res.map((r) => ({ title: L(getMetric(r.metric)!.label), unit: getMetric(r.metric)!.unit, points: (r.series ?? []).map((p) => ({ label: p.key, value: p.value, compare: p.compare })) })) });
         break;
       }
       case 'channels': {
@@ -313,7 +521,7 @@ export async function buildReport(app: AppContext, user: SessionUser | null, typ
         sections.push({
           id: 'issues',
           title: T('Open technical SEO issues', 'Anomalies SEO techniques ouvertes'),
-          tables: [{ title: T('By severity and rule', 'Par gravité et règle'), columns: [{ key: 'severity', label: T('Severity', 'Gravité'), unit: 'text' }, { key: 'rule', label: T('Rule', 'Règle'), unit: 'text' }, { key: 'count', label: T('Issues', 'Anomalies'), unit: 'count' }], rows: [...by.entries()].map(([k, n]) => ({ severity: k.split('|')[0], rule: k.split('|')[1].replace(/_/g, ' '), count: n })) }],
+          tables: [{ title: T('By severity and rule', 'Par gravité et règle'), columns: [{ key: 'severity', label: T('Severity', 'Gravité'), unit: 'text' }, { key: 'rule', label: T('Rule', 'Règle'), unit: 'text' }, { key: 'count', label: T('Issues', 'Anomalies'), unit: 'count' }], rows: [...by.entries()].map(([k, count]) => ({ severity: k.split('|')[0], rule: SEO_RULES[k.split('|')[1]]?.label[lang] ?? k.split('|')[1].replace(/_/g, ' '), count })) }],
         });
         break;
       }
@@ -351,16 +559,9 @@ export async function buildReport(app: AppContext, user: SessionUser | null, typ
       case 'conversions_compare':
         sections.push({ id: 'conversions_compare', title: T('Conversions — two systems', 'Conversions — deux systèmes'), kpis: kpiRows(Q({ metrics: ['ads_conversions', 'ads_ga_key_events'] })), text: [T('Shown side by side; never summed.', 'Présentées côte à côte ; jamais additionnées.')] });
         break;
-      case 'recommendations': {
-        const recs = await app.db.select().from(recommendations).where(inArray(recommendations.status, ['new', 'under_review', 'approved', 'in_progress'])).orderBy(desc(recommendations.updatedAt));
-        const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
-        sections.push({
-          id: 'recommendations',
-          title: T('Recommended actions', 'Actions recommandées'),
-          tables: [{ title: T('Open recommendations', 'Recommandations ouvertes'), columns: [{ key: 'priority', label: T('Priority', 'Priorité'), unit: 'text' }, { key: 'title', label: T('Recommendation', 'Recommandation'), unit: 'text' }, { key: 'status', label: T('Status', 'Statut'), unit: 'text' }], rows: recs.sort((a, b) => order[a.priority] - order[b.priority]).slice(0, 10).map((r) => ({ priority: r.priority, title: lang === 'fr' ? r.titleFr ?? r.title : r.title, status: r.status })) }],
-        });
+      case 'recommendations':
+        sections.push({ id: 'recommendations', title: T('Recommended actions', 'Actions recommandées'), tables: [recTable(await openRecs())] });
         break;
-      }
       case 'breakdown': {
         if (!cfg.groupBy) break;
         const r = Q({ metrics: kpiList.slice(0, 5), groupBy: cfg.groupBy as DimensionId, limit: 30 });
@@ -379,11 +580,22 @@ export async function buildReport(app: AppContext, user: SessionUser | null, typ
     executive: { en: 'Executive digital performance report', fr: 'Rapport exécutif de performance digitale' },
     website: { en: 'Website performance report', fr: 'Rapport de performance des sites' },
     social: { en: 'Social media report', fr: 'Rapport réseaux sociaux' },
-    seo: { en: 'SEO & GEO report', fr: 'Rapport SEO & GEO' },
+    seo: { en: 'SEO report', fr: 'Rapport SEO' },
+    geo: { en: 'GEO visibility report', fr: 'Rapport de visibilité GEO' },
     ads: { en: 'ChatGPT Ads report', fr: 'Rapport ChatGPT Ads' },
     content: { en: 'Content performance report', fr: 'Rapport de performance des contenus' },
     custom: { en: 'Custom report', fr: 'Rapport personnalisé' },
   };
+  // Appendix sections in the executive report
+  if (type === 'executive') for (const sec of sections) if (!isExec(sec.id) && sec.id !== 'commentary') Object.assign(sec, { appendix: true, title: `${T('Appendix', 'Annexe')} — ${sec.title}` });
+  const lim = sections.find((x) => x.id === 'limitations');
+  if (lim) {
+    // The summary already lists its own limitations; add only what appendix sections introduced.
+    const has = (re: RegExp) => lim.items!.some((i) => re.test(i.text));
+    if (modes.has('demo') && !has(/DEMO|DÉMO/)) lim.items!.unshift({ text: T('Some figures come from the DEMO dataset (synthetic), not from Veolia sources.', 'Certains chiffres proviennent du jeu de DÉMONSTRATION (synthétique), pas des sources Veolia.'), tone: 'warning' });
+    if (modes.has('partial') && !has(/PARTIAL|PARTIEL/)) lim.items!.push({ text: T('Some sources are only partially connected; affected indicators are marked PARTIAL.', 'Certaines sources ne sont que partiellement connectées ; les indicateurs concernés sont marqués PARTIEL.'), tone: 'warning' });
+    lim.items!.push({ text: T('Indicator-level notes (coverage, missing days, sampling) are shown next to each indicator in the tables.', 'Les remarques par indicateur (couverture, jours manquants, échantillonnage) figurent à côté de chaque indicateur dans les tableaux.'), tone: 'neutral' });
+  }
   const notes: string[] = [];
   if (modes.has('demo')) notes.push(T('DEMO DATA — figures are synthetic and must not be used for decisions.', 'DONNÉES DE DÉMONSTRATION — chiffres synthétiques, à ne pas utiliser pour décider.'));
   if (modes.has('partial')) notes.push(T('Some sources are only partially connected.', 'Certaines sources ne sont que partiellement connectées.'));
@@ -397,6 +609,7 @@ export async function buildReport(app: AppContext, user: SessionUser | null, typ
     filters,
     generatedAt: new Date().toISOString(),
     generatedBy,
+    asOf,
     organisation: 'Veolia',
     dataModes: [...modes],
     sources: [...sources],
@@ -404,6 +617,16 @@ export async function buildReport(app: AppContext, user: SessionUser | null, typ
     summary,
     notes,
   };
+}
+
+/** Report types, their selectable sections and defaults — consumed by the report builder UI. */
+export function reportCatalog() {
+  return REPORT_TYPES.map((type) => ({
+    type,
+    sections: SECTION_IDS[type].map((id) => ({ id, label: SECTION_LABELS[id] ?? { en: id, fr: id }, required: type === 'executive' && (EXECUTIVE_STRUCTURE as readonly string[]).includes(id) })),
+    defaultSections: DEFAULT_SECTIONS[type],
+    defaultKpis: TYPE_KPIS[type],
+  }));
 }
 
 export function periodLabel(c: ReportContent): string {

@@ -6,6 +6,8 @@ export const frequencySchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('daily'), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/) }),
   z.object({ kind: z.literal('weekly'), weekday: z.number().int().min(0).max(6), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/) }),
   z.object({ kind: z.literal('monthly'), day: z.number().int().min(1).max(28), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/) }),
+  // first month of each quarter (January, April, July, October)
+  z.object({ kind: z.literal('quarterly'), day: z.number().int().min(1).max(28), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/) }),
 ]);
 export type Frequency = z.infer<typeof frequencySchema>;
 
@@ -42,6 +44,7 @@ export function nextRun(freq: Frequency, after: Date, tz = 'Europe/Paris'): Date
     const { y, m, d, wd } = zonedParts(probe, tz);
     if (freq.kind === 'weekly' && wd !== freq.weekday) continue;
     if (freq.kind === 'monthly' && d !== freq.day) continue;
+    if (freq.kind === 'quarterly' && (d !== freq.day || (m - 1) % 3 !== 0)) continue;
     const at = zonedToUtc(y, m, d, hh, mm, tz);
     if (at.getTime() > after.getTime()) return at;
   }
@@ -59,5 +62,7 @@ export function describeFrequency(freq: Frequency, lang: 'en' | 'fr' = 'en'): st
       return lang === 'fr' ? `Chaque ${days[freq.weekday]} à ${freq.time}` : `Every ${days[freq.weekday]} at ${freq.time}`;
     case 'monthly':
       return lang === 'fr' ? `Le ${freq.day} de chaque mois à ${freq.time}` : `Monthly on day ${freq.day} at ${freq.time}`;
+    case 'quarterly':
+      return lang === 'fr' ? `Le ${freq.day} du premier mois de chaque trimestre à ${freq.time}` : `Quarterly on day ${freq.day} of the first month at ${freq.time}`;
   }
 }
