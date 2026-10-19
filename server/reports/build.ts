@@ -1,12 +1,13 @@
 /** Builds report content (format-independent) from the semantic engine. */
 import { desc, eq, inArray } from 'drizzle-orm';
 import { addDays, comparisonRange, defaultGranularity, resolvePreset, type CompareMode, type RangePreset } from '@shared/calendar';
-import { CHANNELS, GEO_PROMPTS, GEO_PROVIDERS, SOCIAL_ACCOUNTS, TOPICS, label, type L10n } from '@shared/catalog';
+import { CHANNELS, GEO_PROMPTS, GEO_PROVIDERS, TOPICS, label, type L10n } from '@shared/catalog';
+import { registeredAccounts } from '../analytics/registry';
 import { analyticsQuerySchema, type DimensionId, type Filters, type MetricResult } from '@shared/filters';
 import { getMetric, type Unit } from '@shared/metrics';
 import { z } from 'zod';
 import type { AppContext, SessionUser } from '../context';
-import { alertEvents, geoPrompts, recommendations, seoIssues } from '../db/schema';
+import { alertEvents, geoPrompts, organizations, recommendations, seoIssues } from '../db/schema';
 import { RULES as SEO_RULES } from '../seo/rules';
 import { runQuery } from '../analytics/engine';
 import { buildExecutiveSummary, type ExecutiveSummary, type SummaryItem } from '../insights/summary';
@@ -210,9 +211,9 @@ const NOTE_TEXT = (code: string, params: Record<string, unknown> | undefined, la
   return (lang === 'fr' ? fr : en)[code] ?? code;
 };
 
-export function resolveReportPeriod(cfg: ReportConfig, asOf: string): { from: string; to: string } {
+export function resolveReportPeriod(cfg: ReportConfig, asOf: string, fiscalYearStartMonth = 1): { from: string; to: string } {
   if (cfg.preset === 'custom' && cfg.from && cfg.to) return { from: cfg.from, to: cfg.to };
-  return resolvePreset((cfg.preset === 'custom' ? 'last30' : cfg.preset) as Exclude<RangePreset, 'custom'>, asOf);
+  return resolvePreset((cfg.preset === 'custom' ? 'last30' : cfg.preset) as Exclude<RangePreset, 'custom'>, asOf, fiscalYearStartMonth);
 }
 
 export async function buildReport(app: AppContext, user: SessionUser | null, type: ReportType, cfgIn: Partial<ReportConfig>, generatedBy: string): Promise<ReportContent> {
@@ -220,7 +221,9 @@ export async function buildReport(app: AppContext, user: SessionUser | null, typ
   const lang = cfg.language;
   const ctx = await app.analytics.engineContext(user);
   const asOf = ctx.dataset.asOf;
-  const period = resolveReportPeriod(cfg, asOf);
+  const acct = await registeredAccounts(app.db);
+  const [org] = await app.db.select({ settings: organizations.settings }).from(organizations).where(eq(organizations.id, app.orgId));
+  const period = resolveReportPeriod(cfg, asOf, Number((org?.settings as { fiscalYearStartMonth?: number } | undefined)?.fiscalYearStartMonth ?? 1));
   const filters = cfg.filters as Filters;
   const Q = (x: { metrics: string[]; groupBy?: DimensionId; granularity?: 'day' | 'week' | 'month'; compare?: CompareMode; limit?: number; filters?: Filters; from?: string; to?: string }) =>
     runQuery(ctx, analyticsQuerySchema.parse({ from: x.from ?? period.from, to: x.to ?? period.to, compare: x.compare ?? cfg.compare, filters: x.filters ?? filters, metrics: x.metrics, groupBy: x.groupBy, granularity: x.granularity, limit: x.limit })).results;
@@ -467,7 +470,7 @@ export async function buildReport(app: AppContext, user: SessionUser | null, typ
                 { key: 'followers', label: T('Followers (end)', 'Abonnés (fin)'), unit: 'count' },
                 { key: 'net', label: T('Net change', 'Évolution nette'), unit: 'count' },
               ],
-              rows: (r[1].rows ?? []).map((x) => ({ account: SOCIAL_ACCOUNTS.find((a) => a.id === x.key)?.name ?? x.key, posts: r[0].rows?.find((y) => y.key === x.key)?.value ?? null, followers: x.value, net: r[2].rows?.find((y) => y.key === x.key)?.value ?? null })),
+              rows: (r[1].rows ?? []).map((x) => ({ account: acct(x.key).name, posts: r[0].rows?.find((y) => y.key === x.key)?.value ?? null, followers: x.value, net: r[2].rows?.find((y) => y.key === x.key)?.value ?? null })),
             },
           ],
         });
@@ -488,7 +491,7 @@ export async function buildReport(app: AppContext, user: SessionUser | null, typ
                 { key: 'impressions', label: 'Impressions', unit: 'count' },
                 { key: 'engagements', label: 'Engagements', unit: 'count' },
               ],
-              rows: posts.map((p) => ({ date: p.date, account: SOCIAL_ACCOUNTS.find((a) => a.id === p.account)?.name ?? p.account, text: p.text.slice(0, 80), impressions: p.impressions, engagements: p.engagements })),
+              rows: posts.map((p) => ({ date: p.date, account: acct(p.account).name, text: p.text.slice(0, 80), impressions: p.impressions, engagements: p.engagements })),
             },
           ],
         });

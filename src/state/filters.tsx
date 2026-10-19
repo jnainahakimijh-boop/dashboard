@@ -48,8 +48,8 @@ export function useGlobalFilters(): GlobalFilters {
   const to = sp.get('to');
   const range = useMemo<DateRange>(() => {
     if (preset === 'custom' && isIsoDate(from) && isIsoDate(to) && from <= to) return { from, to };
-    return resolvePreset(preset === 'custom' ? 'last30' : preset, asOf);
-  }, [preset, from, to, asOf]);
+    return resolvePreset(preset === 'custom' ? 'last30' : preset, asOf, orgDefaults?.fiscalYearStartMonth ?? 1);
+  }, [preset, from, to, asOf, orgDefaults?.fiscalYearStartMonth]);
 
   const update = useCallback(
     (fn: (p: URLSearchParams) => void) => {

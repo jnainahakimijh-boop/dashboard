@@ -25,10 +25,10 @@ interface Account {
   platform: string;
   followersStart: number | null;
   followersEnd: number | null;
-  followersGained: number;
-  followersLost: number;
-  posts: number;
-  impressions: number;
+  followersGained: number | null;
+  followersLost: number | null;
+  posts: number | null;
+  impressions: number | null;
   impressionsKind: 'post' | 'thumbnail';
   engagements: number | null;
   rate: number | null;
@@ -36,6 +36,42 @@ interface Account {
   videoViews: number | null;
   watchMinutes: number | null;
   linkClicks: number | null;
+  /** indicators chosen in Administration; empty = all */
+  reported: string[];
+}
+
+// indicators shown with a chosen one (rates and averages follow their base indicator)
+const RELATED: Record<string, string> = { followers_lost: 'followers_net', yt_avg_view_minutes: 'yt_watch_minutes', yt_view_rate: 'yt_impressions' };
+
+/** Keeps the indicators that at least one active account of the platform reports (all when none is restricted). */
+function useReportedMetrics(metrics: string[], platforms?: string[]): string[] {
+  const meta = useMeta();
+  const accounts = (meta.data?.accounts ?? []).filter((a) => a.status === 'active' && (!platforms || platforms.includes(a.platform)));
+  if (!accounts.length || accounts.some((a) => !a.metrics?.length)) return metrics;
+  const chosen = new Set(accounts.flatMap((a) => a.metrics));
+  return metrics.filter((m) => chosen.has(m) || chosen.has(RELATED[m] ?? ''));
+}
+
+// account table columns and the indicator each one shows
+const COLUMN_METRIC = (r: Account): Record<string, string> => ({ end: 'followers', net: 'followers_net', posts: 'social_posts', imp: r.platform === 'youtube' ? 'yt_impressions' : 'social_impressions', rate: 'social_engagement_rate', views: 'yt_views', clicks: 'social_link_clicks' });
+
+/** Blanks the values of indicators an administrator chose not to report for the account. */
+const net = (r: Account) => (r.followersGained === null || r.followersLost === null ? null : r.followersGained - r.followersLost);
+
+function withReported(r: Account): Account {
+  if (!r.reported?.length) return r;
+  const shown = (col: string) => r.reported.includes(COLUMN_METRIC(r)[col]);
+  return {
+    ...r,
+    followersEnd: shown('end') ? r.followersEnd : null,
+    followersGained: shown('net') ? r.followersGained : null,
+    followersLost: shown('net') ? r.followersLost : null,
+    posts: shown('posts') ? r.posts : null,
+    impressions: shown('imp') ? r.impressions : null,
+    rate: shown('rate') ? r.rate : null,
+    videoViews: shown('views') ? r.videoViews : null,
+    linkClicks: shown('clicks') ? r.linkClicks : null,
+  };
 }
 
 function Accounts() {
@@ -52,7 +88,7 @@ function Accounts() {
           <>
             <DataTable
               caption={t('social.accounts')}
-              rows={q.data?.accounts ?? []}
+              rows={(q.data?.accounts ?? []).map(withReported)}
               rowKey={(r) => r.key}
               exportTitle="social-accounts"
               exportMeta={[['Period', formatRange(gf.range, lang)], ['Data mode', q.data?.mode ?? '']]}
@@ -60,15 +96,16 @@ function Accounts() {
               columns={[
                 { key: 'name', header: t('social.account'), value: (r) => r.name, unit: 'text', render: (r) => <span>{r.name}<span className="block text-[11.5px] text-t3 capitalize">{r.platform}</span></span> },
                 { key: 'end', header: t('social.followersEnd'), value: (r) => r.followersEnd, unit: 'count' },
-                { key: 'net', header: t('social.net'), value: (r) => r.followersGained - r.followersLost, unit: 'count', render: (r) => <span className={r.followersGained - r.followersLost < 0 ? 'text-neg' : ''}>{formatValue(r.followersGained - r.followersLost, 'count', lang)}</span> },
+                { key: 'net', header: t('social.net'), value: (r) => net(r), unit: 'count', render: (r) => <span className={(net(r) ?? 0) < 0 ? 'text-neg' : ''}>{formatValue(net(r), 'count', lang)}</span> },
                 { key: 'posts', header: t('social.posts'), value: (r) => r.posts, unit: 'count', hideOnMobile: true },
-                { key: 'imp', header: t('social.impressions'), value: (r) => r.impressions, unit: 'count', render: (r) => <span title={r.impressionsKind === 'thumbnail' ? t('social.impressionsThumb') : undefined}>{formatValue(r.impressions, 'count', lang, { compact: true })}{r.impressionsKind === 'thumbnail' ? '*' : ''}</span> },
+                { key: 'imp', header: t('social.impressions'), value: (r) => r.impressions, unit: 'count', render: (r) => <span title={r.impressionsKind === 'thumbnail' ? t('social.impressionsThumb') : undefined}>{formatValue(r.impressions, 'count', lang, { compact: true })}{r.impressionsKind === 'thumbnail' && r.impressions !== null ? '*' : ''}</span> },
                 { key: 'rate', header: t('social.rate'), value: (r) => r.rate, unit: 'percent' },
                 { key: 'views', header: t('social.views'), value: (r) => r.videoViews, unit: 'count', hideOnMobile: true },
                 { key: 'clicks', header: t('social.linkClicks'), value: (r) => r.linkClicks, unit: 'count', hideOnMobile: true },
               ]}
             />
             <p className="mt-2 text-[12px] text-t3">* {t('social.ytNote')}</p>
+            {q.data?.accounts.some((a) => a.reported?.length) && <p className="mt-1 text-[12px] text-t3">{t('social.notReportedNote')}</p>}
             {q.data?.notes.map((n, i) => (
               <p key={i} className="mt-1 text-[12px] text-warn">
                 {noteText(n, t, lang)}
@@ -358,9 +395,10 @@ function TimingPanel() {
 function PlatformTab({ platform }: { platform: 'linkedin' | 'x' }) {
   const { t } = useI18n();
   const f = { platform: [platform] };
+  const kpis = useReportedMetrics(['social_impressions', 'social_engagements', 'social_engagement_rate', 'social_link_clicks', 'followers', 'followers_net', 'social_posts', 'followers_lost'], [platform]);
   return (
     <>
-      <KpiRow metrics={['social_impressions', 'social_engagements', 'social_engagement_rate', 'social_link_clicks', 'followers', 'followers_net', 'social_posts', 'followers_lost']} filters={f} />
+      <KpiRow metrics={kpis} filters={f} />
       {platform === 'x' && <p className="text-[12.5px] text-t2">{t('social.xGapNote')}</p>}
       <TrendCard title={t('social.trend')} metrics={['social_impressions', 'social_engagements']} filters={f} />
       <PostsTable platform={platform} />
@@ -371,6 +409,8 @@ function PlatformTab({ platform }: { platform: 'linkedin' | 'x' }) {
 export default function SocialPage() {
   const { t } = useI18n();
   const [tab, setTab] = useTab<Tab>(TABS, 'overview');
+  const overviewKpis = useReportedMetrics(['social_impressions', 'social_engagement_rate', 'social_link_clicks', 'followers', 'followers_net', 'social_posts', 'yt_views', 'yt_watch_minutes']);
+  const youtubeKpis = useReportedMetrics(['yt_views', 'yt_watch_minutes', 'yt_avg_view_minutes', 'yt_impressions', 'yt_view_rate', 'followers', 'followers_net', 'social_posts'], ['youtube']);
   return (
     <>
       <PageHeader title={t('social.title')} subtitle={t('social.subtitle')} crumbs={[{ label: t('nav.social') }]} />
@@ -381,7 +421,7 @@ export default function SocialPage() {
           <div className="flex flex-col gap-[var(--gap-grid)]">
             {tab === 'overview' && (
               <>
-                <KpiRow metrics={['social_impressions', 'social_engagement_rate', 'social_link_clicks', 'followers', 'followers_net', 'social_posts', 'yt_views', 'yt_watch_minutes']} />
+                <KpiRow metrics={overviewKpis} />
                 <TrendCard title={t('social.trend')} metrics={['social_impressions', 'social_engagements']} />
                 <Accounts />
               </>
@@ -390,7 +430,7 @@ export default function SocialPage() {
             {tab === 'x' && <PlatformTab platform="x" />}
             {tab === 'youtube' && (
               <>
-                <KpiRow metrics={['yt_views', 'yt_watch_minutes', 'yt_avg_view_minutes', 'yt_impressions', 'yt_view_rate', 'followers', 'followers_net', 'social_posts']} filters={{ platform: ['youtube'] }} />
+                <KpiRow metrics={youtubeKpis} filters={{ platform: ['youtube'] }} />
                 <p className="text-[12.5px] text-t2">{t('social.ytNote')}</p>
                 <TrendCard title={t('social.views')} metrics={['yt_views']} />
                 <PostsTable platform="youtube" />

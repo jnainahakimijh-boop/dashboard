@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays } from '@shared/calendar';
+import { addDays, resolvePreset } from '@shared/calendar';
 import { CODES, DEMO_END, dayOf } from '@shared/demo/generate';
 import { analyticsQuerySchema, type AnalyticsQuery } from '@shared/filters';
 import { buildDemoDataset } from './dataset';
@@ -64,6 +64,22 @@ describe('sums and ratios', () => {
     expect(zero).toBeUndefined(); // ratio undefined → row omitted rather than shown as 0 or ∞
     const spend = one({ metrics: ['ads_spend'], ...last30, groupBy: 'ad' }).rows!.find((x) => x.key === 'ad-ind-decarb-b');
     expect(spend!.value).toBeGreaterThan(0);
+  });
+});
+
+describe('conversion events per website', () => {
+  it('counts a website’s own conversion events and keeps the default elsewhere', () => {
+    const custom = { ...ctx, siteConversionEvents: { 'veolia-fr': ['newsletter_signup'] } };
+    const run = (c: typeof ctx, site?: string) => runQuery(c, analyticsQuerySchema.parse({ metrics: ['conversions', 'ev_newsletter_signup'], ...last30, compare: 'none', filters: site ? { site: [site] } : {} })).results;
+    const [frConv, frNewsletter] = run(custom, 'veolia-fr');
+    expect(frConv.value).toBe(frNewsletter.value);
+    const [enCustom] = run(custom, 'veolia-en');
+    const [enDefault] = run(ctx, 'veolia-en');
+    expect(enCustom.value).toBe(enDefault.value);
+    const [all] = run(custom);
+    expect(all.value).toBe(frNewsletter.value! + enDefault.value!);
+    const [allDefault] = run(ctx);
+    expect(all.value).not.toBe(allDefault.value);
   });
 });
 
@@ -178,5 +194,27 @@ describe('custom metrics', () => {
     for (let i = s; i < e; i++) sum += t.meas.gaSessions[i];
     expect(r.value).toBe(sum);
     expect(CODES.channel).toContain('paid');
+  });
+});
+
+describe('period presets', () => {
+  it('uses calendar quarters and years by default', () => {
+    expect(resolvePreset('qtd', '2026-10-18')).toEqual({ from: '2026-10-01', to: '2026-10-18' });
+    expect(resolvePreset('ytd', '2026-10-18')).toEqual({ from: '2026-01-01', to: '2026-10-18' });
+    expect(resolvePreset('prevQuarter', '2026-01-10')).toEqual({ from: '2025-10-01', to: '2025-12-31' });
+    expect(resolvePreset('prevYear', '2026-10-18')).toEqual({ from: '2025-01-01', to: '2025-12-31' });
+    expect(resolvePreset('prevMonth', '2026-03-31')).toEqual({ from: '2026-02-01', to: '2026-02-28' });
+  });
+
+  it('follows a fiscal year that starts in April', () => {
+    expect(resolvePreset('ytd', '2026-10-18', 4)).toEqual({ from: '2026-04-01', to: '2026-10-18' });
+    expect(resolvePreset('ytd', '2026-02-10', 4)).toEqual({ from: '2025-04-01', to: '2026-02-10' });
+    expect(resolvePreset('qtd', '2026-10-18', 4)).toEqual({ from: '2026-10-01', to: '2026-10-18' });
+    expect(resolvePreset('qtd', '2026-02-10', 4)).toEqual({ from: '2026-01-01', to: '2026-02-10' });
+    expect(resolvePreset('prevQuarter', '2026-05-02', 4)).toEqual({ from: '2026-01-01', to: '2026-03-31' });
+    expect(resolvePreset('prevYear', '2026-10-18', 4)).toEqual({ from: '2025-04-01', to: '2026-03-31' });
+    // quarters not aligned with calendar quarters
+    expect(resolvePreset('qtd', '2026-10-18', 2)).toEqual({ from: '2026-08-01', to: '2026-10-18' });
+    expect(resolvePreset('prevQuarter', '2026-10-18', 2)).toEqual({ from: '2026-05-01', to: '2026-07-31' });
   });
 });

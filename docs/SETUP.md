@@ -3,7 +3,7 @@
 ## Requirements
 
 - Node.js 22.13 or later (the server uses `process.loadEnvFile` and native `fetch`).
-- PostgreSQL 14 or later for production. Locally, an embedded PostgreSQL (PGlite, WebAssembly) is used when `DATABASE_URL` is empty. It is stored in `DATA_DIR/pgdata`.
+- PostgreSQL 14 or later for production (tested on PostgreSQL 16). Locally, an embedded PostgreSQL (PGlite, WebAssembly) is used when `DATABASE_URL` is empty. It is stored in `DATA_DIR/pgdata`.
 - About 300 MB of disk space for `node_modules`.
 
 ## Local installation
@@ -55,6 +55,7 @@ Every variable is documented in `.env.example`. The server validates them at sta
 - Migrations: `server/db/migrations/*.sql`. They are applied automatically at start-up, or explicitly with `npm run db:migrate`.
 - To change the schema, edit `schema.ts`, run `npm run db:generate -- --name <change>`, review the SQL and commit it.
 - `npm run db:seed` seeds an empty database. `npm run db:reset -- --yes` deletes everything and re-seeds; it is refused in production.
+- To run the API test suite against a real PostgreSQL server instead of the embedded one, set `TEST_DATABASE_URL` to an empty, disposable database: `TEST_DATABASE_URL=postgres://… npx vitest run server/api.test.ts`. The suite writes to that database, so drop and re-create it before each run. The 63 API tests pass on PostgreSQL 16.
 
 ## Production deployment
 
@@ -67,7 +68,7 @@ Every variable is documented in `.env.example`. The server validates them at sta
    npm start              # node dist-server/index.js
    ```
 4. Put the service behind the corporate reverse proxy or load balancer with TLS. The application sets CSP, `X-Frame-Options: DENY`, `Referrer-Policy` and other headers itself. It expects to be served from the root path of its own host.
-5. Run one instance with `JOBS_ENABLED=true`, and set `JOBS_ENABLED=false` on any extra web instances. Job execution is safe across workers because jobs are claimed with `FOR UPDATE SKIP LOCKED`. Schedule ticks, however, are only de-duplicated on a best-effort basis.
+5. Run one instance with `JOBS_ENABLED=true`, and set `JOBS_ENABLED=false` on any extra web instances. Job execution is safe across workers because jobs are claimed with `FOR UPDATE SKIP LOCKED`. Schedule ticks, however, are only de-duplicated on a best-effort basis. Each instance keeps the analytics data in memory and reloads it within about 10 seconds of a sync or import on another instance. Size the memory for the warehouse volume (see Known limitations).
 6. Health check: `GET /api/health` returns `200 {"status":"ok"}`, or `503` when the database is unreachable.
 7. Sign in as the seeded super administrator, change the password, then work through Administration → Overview → *Production readiness*.
 
@@ -82,7 +83,9 @@ The repository does not ship a container image. If one is needed, a minimal imag
 
 ## Backups and restore
 
-- **PostgreSQL:** take nightly `pg_dump -Fc "$DATABASE_URL" > vdi-$(date +%F).dump` backups, kept according to the corporate policy. Restore with `pg_restore --clean --no-owner -d "$DATABASE_URL" vdi-YYYY-MM-DD.dump`.
+- **PostgreSQL:** take nightly backups with `pg_dump -Fc "$DATABASE_URL" > vdi-$(date +%F).dump`, kept according to the corporate policy. To restore, stop the application, then run `pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" vdi-YYYY-MM-DD.dump`. This works on an existing or an empty database. Restored accounts keep their passwords: the seed never changes an existing administrator.
+
+  This round trip was tested on PostgreSQL 16. The dump was restored into an empty database, the table counts matched, and the production build started on the restored database and served its data.
 - **Encryption key:** store `APP_ENCRYPTION_KEY` separately from database backups, in the corporate secret manager. Without it, stored connector credentials cannot be decrypted and must be entered again. No other data is lost.
 - **Embedded database (development):** stop the server and copy `DATA_DIR`.
 - Generated report files are stored in the database (`report_runs`), so they are included in database backups. Their retention is set in Administration → Organisation.

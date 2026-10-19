@@ -4,10 +4,11 @@ import type { Unit } from '@shared/metrics';
 type Lang = 'en' | 'fr';
 
 /** Organisation-wide formatting defaults (Administration → Organisation), applied once meta is loaded. */
-const overrides: { numberLocale?: string; dateFormat?: 'locale' | 'iso' } = {};
-export function configureFormatting(o: { numberLocale?: string; dateFormat?: 'locale' | 'iso' }): void {
+const overrides: { numberLocale?: string; dateFormat?: 'locale' | 'iso'; currency?: string } = {};
+export function configureFormatting(o: { numberLocale?: string; dateFormat?: 'locale' | 'iso'; currency?: string }): void {
   overrides.numberLocale = o.numberLocale;
   overrides.dateFormat = o.dateFormat;
+  overrides.currency = o.currency && /^[A-Z]{3}$/.test(o.currency) ? o.currency : undefined;
 }
 const loc = (lang: Lang) => overrides.numberLocale ?? (lang === 'fr' ? 'fr-FR' : 'en-GB');
 const dloc = (lang: Lang) => (lang === 'fr' ? 'fr-FR' : 'en-GB');
@@ -19,7 +20,7 @@ export function formatValue(v: number | null | undefined, unit: Unit | 'text' | 
     case 'percent':
       return new Intl.NumberFormat(L, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: Math.abs(v) < 0.01 ? 2 : 1 }).format(v);
     case 'currency':
-      return new Intl.NumberFormat(L, { style: 'currency', currency: opts.currency ?? 'EUR', notation: opts.compact && Math.abs(v) >= 10_000 ? 'compact' : 'standard', maximumFractionDigits: Math.abs(v) < 100 ? 2 : 0 }).format(v);
+      return new Intl.NumberFormat(L, { style: 'currency', currency: opts.currency ?? overrides.currency ?? 'EUR', notation: opts.compact && Math.abs(v) >= 10_000 ? 'compact' : 'standard', maximumFractionDigits: Math.abs(v) < 100 ? 2 : 0 }).format(v);
     case 'position':
       return new Intl.NumberFormat(L, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(v);
     case 'decimal':

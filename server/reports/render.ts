@@ -3,7 +3,7 @@ import PDFDocument from 'pdfkit';
 import ExcelJS from 'exceljs';
 import { getMetric, SOURCE_LABELS, type SourceKey, type Unit } from '@shared/metrics';
 import { label } from '@shared/catalog';
-import { fmt, fmtDelta, fmtPct, fmtRange, type Lang } from '../insights/format';
+import { fmt, fmtDelta, fmtPct, fmtRange, getReportingCurrency, type Lang } from '../insights/format';
 import type { ReportContent, TableBlock } from './build';
 
 /** Helvetica (WinAnsi) cannot draw some Unicode characters: map them to safe equivalents. */
@@ -308,8 +308,10 @@ const numFmt = (unit: Unit | 'text' | undefined): string | undefined => {
   switch (unit) {
     case 'percent':
       return '0.0%';
-    case 'currency':
-      return '#,##0.00 [$€-x-euro2]';
+    case 'currency': {
+      const code = getReportingCurrency();
+      return code === 'EUR' ? '#,##0.00 [$€-x-euro2]' : `#,##0.00 [$${code}]`;
+    }
     case 'position':
     case 'decimal':
       return '0.00';

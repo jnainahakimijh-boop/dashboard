@@ -44,6 +44,8 @@ export const organizations = pgTable('organizations', {
   logoDataUrl: text('logo_data_url'),
   demoMode: boolean('demo_mode').notNull().default(true),
   settings: jsonb('settings').$type<Record<string, unknown>>().notNull().default({}),
+  /** bumped on every write that changes analytics inputs, so every instance rebuilds its in-memory dataset */
+  dataVersion: integer('data_version').notNull().default(0),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

@@ -27,6 +27,7 @@ import type { Role } from '@shared/rbac';
 import type { Env } from '../env';
 import { hashPassword } from '../security/crypto';
 import { nextRun, type Frequency } from '../jobs/schedule';
+import { ensureSystemSchedules } from '../jobs/system';
 import type { DB } from './client';
 import * as s from './schema';
 import { buildDemoCrawlSnapshot } from '../seo/demoSnapshot';
@@ -138,9 +139,10 @@ export async function seedIfEmpty(db: DB, env: Env, log: (m: string) => void = (
     ADS.map((a) => ({ adGroupId: groupIds[a.group], key: a.id, name: a.name, headline: a.headline, landingUrl: `https://www.veolia.com${a.landing}`, siteKey: a.site, status: AD_GROUPS.find((g) => g.id === a.group)?.status === 'paused' ? 'paused' : 'active', reviewStatus: 'approved' })),
   );
 
-  await conn('geo_openai', 'GEO sampling — OpenAI API (web search)', demoStatus, demoMode, { model: 'configure in Administration', cadenceDays: 7 });
-  await conn('geo_perplexity', 'GEO sampling — Perplexity API', demoStatus, demoMode, { model: 'configure in Administration', cadenceDays: 7 });
-  await conn('geo_manual', 'GEO — manual observations (Google AI features)', demoStatus, env.DEMO_MODE ? 'demo' : 'csv', { cadenceDays: 28 });
+  // no model until an administrator chooses one: measurements stay blocked until then
+  await conn('geo_openai', 'GEO sampling — OpenAI API (web search)', demoStatus, demoMode, { brandTerms: 'Veolia' });
+  await conn('geo_perplexity', 'GEO sampling — Perplexity API', demoStatus, demoMode, { brandTerms: 'Veolia' });
+  await conn('geo_manual', 'GEO — manual observations (Google AI features)', demoStatus, env.DEMO_MODE ? 'demo' : 'csv', {});
   await conn('ai_provider', 'AI explanations provider', 'not_configured', 'api', { provider: 'none' });
   await conn('smtp', 'E-mail delivery (SMTP)', env.smtpConfigured ? 'connected' : 'not_configured', 'api', { host: env.SMTP_HOST || null });
   await conn('oidc', 'Single sign-on (OpenID Connect)', 'not_configured', 'api', {});
@@ -278,13 +280,7 @@ export async function seedIfEmpty(db: DB, env: Env, log: (m: string) => void = (
 
   /* recurring jobs */
   const now = new Date();
-  const sched = (name: string, jobType: string, frequency: Frequency, payload: Record<string, unknown> = {}) => ({ orgId, name, jobType, frequency, payload, enabled: true, nextRunAt: nextRun(frequency, now) });
-  await db.insert(s.schedules).values([
-    sched('Evaluate alert rules', 'alerts.evaluate', { kind: 'daily', time: '07:00' }),
-    sched('Refresh recommendations', 'recommendations.generate', { kind: 'daily', time: '07:15' }),
-    sched('Synchronise connected sources', 'connectors.sync_all', { kind: 'daily', time: '05:30' }),
-    sched('Purge expired sessions and old files', 'maintenance.cleanup', { kind: 'daily', time: '03:00' }),
-  ]);
+  await ensureSystemSchedules(db, orgId, now);
 
   /* report templates & schedules */
   const [execTpl] = await db

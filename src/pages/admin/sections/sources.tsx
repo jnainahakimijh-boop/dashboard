@@ -31,6 +31,7 @@ interface Integration {
   nextSyncAt: string | null;
   recordsProcessed: number | null;
   webhookPath: string | null;
+  geo: { blocker: 'not_api_mode' | 'paused' | 'no_api_key' | 'no_model' | 'not_approved' | null; approval: { approvedAt: string; approvedByName: string } | null } | null;
   definition: {
     label: string;
     modes: Array<'api' | 'csv' | 'demo' | 'webhook'>;
@@ -166,6 +167,8 @@ function IntegrationCard({ c, onConfigure }: { c: Integration; onConfigure: () =
   const pause = useAction<void>('POST', `/api/admin/integrations/${c.id}/pause`, inv);
   const resume = useAction<void>('POST', `/api/admin/integrations/${c.id}/resume`, inv);
   const disconnect = useAction<void>('POST', `/api/admin/integrations/${c.id}/disconnect`, inv);
+  const approval = useAction<{ approved: boolean; confirmation?: string }>('POST', `/api/admin/integrations/${c.id}/approval`, inv);
+  const [approving, setApproving] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   const manage = can('integrations.manage');
   const def = c.definition;
@@ -197,7 +200,9 @@ function IntegrationCard({ c, onConfigure }: { c: Integration; onConfigure: () =
         {row(t('admin.nextSync'), c.nextSyncAt ? formatDateTime(c.nextSyncAt, lang) : t('admin.notScheduled'))}
         {row(t('admin.records'), c.recordsProcessed === null ? '—' : formatValue(c.recordsProcessed, 'count', lang))}
         {row(t('admin.dataRange'), c.dataFrom && c.dataTo ? `${c.dataFrom} → ${c.dataTo}` : '—')}
+        {c.geo && row(t('admin.geoApproval'), c.geo.approval ? t('admin.geoApprovedBy', { name: c.geo.approval.approvedByName, date: formatDateTime(c.geo.approval.approvedAt, lang) }) : t('admin.geoNotApproved'))}
       </dl>
+      {c.geo?.blocker && c.status !== 'demo' && <p className="mt-2 text-[12.5px] text-t2">{t(`admin.geoBlocker_${c.geo.blocker}`)}</p>}
       {c.lastError && <p className="mt-2 rounded-md bg-negsoft px-2 py-1.5 text-[12.5px] text-neg">{c.lastError}</p>}
       {result && <p className={`mt-2 rounded-md px-2 py-1.5 text-[12.5px] ${result.ok ? 'bg-possoft text-pos' : 'bg-negsoft text-neg'}`}>{result.message}</p>}
       {c.status === 'demo' && <p className="mt-2 text-[12px] text-t3">{t('admin.demoConnNote')}</p>}
@@ -220,6 +225,17 @@ function IntegrationCard({ c, onConfigure }: { c: Integration; onConfigure: () =
                 {t('admin.syncNow')}
               </Button>
             )}
+            {c.geo &&
+              can('ai.manage') &&
+              (c.geo.approval ? (
+                <Button size="sm" variant="ghost" icon={<ShieldOff className="size-3.5" />} loading={approval.pending} onClick={() => window.confirm(t('common.areYouSure')) && approval.run({ approved: false })}>
+                  {t('admin.revokeApproval')}
+                </Button>
+              ) : (
+                <Button size="sm" variant="ghost" icon={<ShieldCheck className="size-3.5" />} onClick={() => setApproving(true)}>
+                  {t('admin.recordApproval')}
+                </Button>
+              ))}
             {c.status === 'paused' ? (
               <Button size="sm" variant="ghost" icon={<Play className="size-3.5" />} onClick={() => resume.run(undefined)}>
                 {t('admin.resume')}
@@ -283,7 +299,7 @@ function IntegrationCard({ c, onConfigure }: { c: Integration; onConfigure: () =
                     <span className="tnum text-t3">{formatDateTime(e.startedAt, lang)}</span>
                     <Badge tone={e.status === 'succeeded' ? 'pos' : e.status === 'failed' ? 'neg' : 'neutral'}>{e.status}</Badge>
                     <span>{e.kind}</span>
-                    <span className="tnum">{formatValue(e.rowsWritten, 'count', lang)} rows</span>
+                    <span className="tnum">{t('admin.rowsCount', { n: formatValue(e.rowsWritten, 'count', lang) })}</span>
                     {e.error && <span className="text-neg">{e.error}</span>}
                   </li>
                 ))}
@@ -291,6 +307,17 @@ function IntegrationCard({ c, onConfigure }: { c: Integration; onConfigure: () =
             </div>
           )}
         </div>
+      )}
+      {c.geo && (
+        <TypedConfirm
+          open={approving}
+          onClose={() => setApproving(false)}
+          title={t('admin.recordApproval')}
+          word="APPROVE"
+          pending={approval.pending}
+          body={<p>{t('admin.geoApprovalBody', { provider: c.name })}</p>}
+          onConfirm={async (typed) => (await approval.run({ approved: true, confirmation: typed })) !== undefined && setApproving(false)}
+        />
       )}
     </li>
   );
@@ -537,7 +564,7 @@ interface SocialAccount {
 const PLATFORM_METRICS: Record<string, string[]> = {
   linkedin: ['social_impressions', 'social_engagements', 'social_engagement_rate', 'social_link_clicks', 'followers', 'followers_net', 'social_posts'],
   x: ['social_impressions', 'social_engagements', 'social_engagement_rate', 'social_link_clicks', 'followers', 'followers_net', 'social_posts'],
-  youtube: ['yt_views', 'yt_watch_minutes', 'social_engagements', 'followers', 'followers_net', 'social_posts'],
+  youtube: ['yt_views', 'yt_watch_minutes', 'yt_impressions', 'social_engagements', 'followers', 'followers_net', 'social_posts'],
 };
 
 function AccountModal({ acc, open, onClose }: { acc: SocialAccount | null; open: boolean; onClose: () => void }) {

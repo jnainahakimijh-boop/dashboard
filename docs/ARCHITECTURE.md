@@ -76,12 +76,25 @@ Configurable conversions: the `@conversions` sentinel expands to the GA4 events 
 1. **API connectors** (`server/connectors/*`). A job calls the provider API with credentials decrypted on the server, maps the response to `fact_rows` and replaces the same dataset, period and entities. Each run is recorded in `sync_executions`. A source becomes **Connected** only after a successful run.
 2. **File imports** (`server/imports`). CSV or XLSX files are validated against a per-dataset specification (types, known entities, non-negative values, duplicates). The validation step previews mapped fields, missing values and schema differences. Existing rows for the same period and entities are replaced only after explicit confirmation. Rejected rows can be downloaded.
 3. **Webhook** (`/api/ingest/drupal/:id`). An HMAC-signed request carries only the form id and timestamp; any other field is discarded on receipt.
-4. **GEO measurements.** A job sends the monitored prompts to the configured provider (only after approval), analyses each answer for brand mentions, veolia.com citations and competitors, and stores one measurement per prompt version and provider.
+4. **GEO measurements.** A job sends the monitored prompts to a provider and analyses each answer for brand mentions, veolia.com citations and competitors. It stores one measurement per prompt version and provider. The provider must be in API mode, with a key and a model, and a super administrator must have recorded approval (`geoMeasureBlocker`). It becomes **Connected** after the first completed answer.
 5. **Derived data.** Alerts are evaluated daily (de-duplicated by fingerprint, with a cool-down and auto-resolution), and recommendations are regenerated daily from rules. Executive summaries are computed on request.
 
 ## Jobs and scheduling
 
 `jobs` is a PostgreSQL-backed queue. Workers claim jobs with `FOR UPDATE SKIP LOCKED`. Failed jobs retry with exponential backoff, stale locks are recovered, and final failures are recorded as system events. `schedules` and `report_schedules` hold the frequencies (daily, weekly, monthly, quarterly), computed in the Europe/Paris time zone and safe across daylight-saving changes.
+
+The platform schedules are defined in `server/jobs/system.ts`. Missing ones are added at start-up, so upgrades reach existing databases.
+
+| Job | Default | Purpose |
+|---|---|---|
+| `connectors.sync_all` | Daily 05:30, on | Syncs every API connection that is Connected or Degraded (last 7 days; the first sync takes 90 days) |
+| `alerts.evaluate` | Daily 07:00, on | Evaluates alert rules |
+| `recommendations.generate` | Daily 07:15, on | Regenerates rule-based recommendations |
+| `maintenance.cleanup` | Daily 03:00, on | Expired sessions, retention of data, GEO, audit and report files, old jobs |
+| `geo.measure_all` | Monday 06:00, **off** | Measures the active prompt library with each Connected and approved GEO provider (paid usage) |
+| `seo.crawl_all` | 1st of the month 04:00, **off** | Crawls every authorised and enabled scope |
+
+Re-enabling a schedule starts from its next regular slot; missed runs are not replayed.
 
 ## Security model
 
@@ -116,7 +129,7 @@ Configurable conversions: the `@conversions` sentinel expands to the GA4 events 
 
 1. **Modular monolith.** One process keeps deployment and the security perimeter simple for an internal tool. The module boundaries (routes, connectors, engine) allow a later split if needed.
 2. **Semantic layer in shared TypeScript.** The same metric definitions drive the API, the UI labels, KPI cards, reports and alerts, which prevents divergent formulas between pages.
-3. **Fact table with jsonb dimensions.** One warehouse table covers the heterogeneous sources at this scale (millions of rows) and keeps imports and syncs uniform. It is loaded into in-memory columnar tables per dataset for fast aggregation.
+3. **Fact table with jsonb dimensions.** One warehouse table covers the heterogeneous sources at this scale (millions of rows) and keeps imports and syncs uniform. It is loaded into in-memory columnar tables per dataset for fast aggregation. Each instance rebuilds them when the calendar day changes, or when `organizations.data_version` changes. Every sync, import, deletion and relevant setting bumps that version, and instances check it every 10 seconds.
 4. **Embedded PostgreSQL for development.** PGlite runs the same SQL and migrations with nothing to install. Production requires a real PostgreSQL.
 5. **Database-backed job queue.** It avoids a separate broker. The volumes (a few hundred jobs per day) are well within what PostgreSQL handles.
 6. **Deterministic demo data.** A seeded generator produces consistent multi-year data, including edge cases (gaps, tracking failures, campaign launches). It is labelled everywhere and never mixed with real data in one calculation.

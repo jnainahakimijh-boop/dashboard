@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { addDays } from '@shared/calendar';
-import { SOCIAL_ACCOUNTS } from '@shared/catalog';
+import { registeredAccounts } from '../analytics/registry';
 import { analyticsQuerySchema } from '@shared/filters';
 import { requirePermission } from '../auth/middleware';
 import { audit } from '../audit';
@@ -22,6 +22,7 @@ export function contentRoutes() {
     const user = currentUser(c);
     const ctx = await app.analytics.engineContext(user);
     const ds = ctx.dataset;
+    const acct = await registeredAccounts(app.db);
     const p = periodParams(c, { from: addDays(ds.asOf, -89), to: ds.asOf });
     const qp = c.req.query();
     const kinds = parseList(qp.kind) ?? ['web_page', 'social_post', 'video'];
@@ -101,7 +102,7 @@ export function contentRoutes() {
         id: o?.id ?? null,
         kind,
         channel: x.platform,
-        account: SOCIAL_ACCOUNTS.find((a) => a.id === x.account)?.name ?? x.account,
+        account: acct(x.account).name,
         title: x.text,
         url: x.url,
         language: x.language,

@@ -9,7 +9,7 @@ import { yesterdayParis } from '../analytics/service';
 import { systemEvent } from '../audit';
 import { safeErrorMessage } from '../security/redact';
 import { CONNECTORS } from './registry';
-import { analyseAnswer, askOpenAi, askPerplexity } from './geo';
+import { GEO_API_PROVIDERS, analyseAnswer, askOpenAi, askPerplexity, geoMeasureBlocker } from './geo';
 import { ConnectorError, type FactRowInput } from './types';
 
 export async function insertFacts(app: AppContext, rows: FactRowInput[], ref: { connectionId?: string | null; importId?: string | null }): Promise<number> {
@@ -91,20 +91,24 @@ export async function syncAllConnected(app: AppContext): Promise<Record<string, 
   return out;
 }
 
-/** Runs GEO measurements for the given prompts against one provider connection. */
+/** Runs GEO measurements for the given prompts against one provider connection.
+ *  The connection becomes Connected only once a real answer has been received. */
 export async function runGeoMeasurements(app: AppContext, connectionId: string, promptKeys: string[]): Promise<{ completed: number; failed: number }> {
   const [conn] = await app.db.select().from(dataConnections).where(eq(dataConnections.id, connectionId));
-  if (!conn || conn.status !== 'connected') throw new ConnectorError('GEO provider is not connected');
+  if (!conn) throw new ConnectorError('Connection not found');
+  const blocker = geoMeasureBlocker({ ...conn, hasSecret: !!conn.secretCiphertext });
+  if (blocker) throw new ConnectorError(`GEO provider is not ready for measurement (${blocker})`);
   const secret = readSecret(app, conn.secretCiphertext);
-  const model = String(conn.config.model ?? '');
-  if (!model) throw new ConnectorError('Configure a model for this GEO provider');
+  const model = String(conn.config.model);
   const brandTerms = String(conn.config.brandTerms ?? 'Veolia').split(',').map((s) => s.trim()).filter(Boolean);
   const comps = (await app.db.select().from(competitorsT)).map((c) => ({ key: c.key, name: c.name, domain: c.domain }));
   const providerKey = conn.provider === 'geo_openai' ? 'openai_api_search' : 'perplexity_api';
   const prompts = await app.db.select().from(geoPrompts).where(inArray(geoPrompts.key, promptKeys));
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
+  const [exec] = await app.db.insert(syncExecutions).values({ connectionId, status: 'running', kind: 'measure' }).returning();
   let completed = 0;
   let failed = 0;
+  let lastError: string | null = null;
   for (const p of prompts) {
     const [v] = await app.db.select().from(geoPromptVersions).where(eq(geoPromptVersions.promptId, p.id)).orderBy(desc(geoPromptVersions.version)).limit(1);
     if (!v) continue;
@@ -114,11 +118,34 @@ export async function runGeoMeasurements(app: AppContext, connectionId: string, 
       await app.db.insert(geoMeasurements).values({ orgId: app.orgId, promptKey: p.key, promptVersion: v.version, provider: providerKey, measuredOn: today, status: ans.text ? 'completed' : 'partial', mentioned: a.mentioned, cited: a.cited, mentionRank: a.mentionRank, citedUrls: a.citedUrls, citedDomains: a.citedDomains, competitors: a.competitors, confidence: ans.text ? 'high' : 'low', model: ans.model ?? model, excerpt: a.excerpt, origin: 'api' });
       completed++;
     } catch (err) {
-      await app.db.insert(geoMeasurements).values({ orgId: app.orgId, promptKey: p.key, promptVersion: v.version, provider: providerKey, measuredOn: today, status: 'failed', origin: 'api', model, error: safeErrorMessage(err) });
+      lastError = safeErrorMessage(err);
+      await app.db.insert(geoMeasurements).values({ orgId: app.orgId, promptKey: p.key, promptVersion: v.version, provider: providerKey, measuredOn: today, status: 'failed', origin: 'api', model, error: lastError });
       failed++;
     }
   }
-  await app.db.update(dataConnections).set({ lastSyncAt: new Date(), ...(completed ? { lastSuccessAt: new Date(), lastError: null } : { lastError: 'All measurements failed' }) }).where(eq(dataConnections.id, connectionId));
+  const error = completed ? null : (lastError ?? 'No prompt was measured');
+  await app.db.update(syncExecutions).set({ status: completed ? 'succeeded' : 'failed', finishedAt: new Date(), rowsWritten: completed, error, details: { completed, failed, prompts: prompts.length } }).where(eq(syncExecutions.id, exec.id));
+  await app.db
+    .update(dataConnections)
+    .set({
+      lastSyncAt: new Date(),
+      updatedAt: new Date(),
+      ...(completed
+        ? { status: 'connected', lastSuccessAt: new Date(), lastError: failed ? `${failed} of ${completed + failed} measurements failed` : null }
+        : { status: conn.status === 'connected' ? 'degraded' : conn.status, lastError: error }),
+    })
+    .where(eq(dataConnections.id, connectionId));
+  if (!completed) await systemEvent(app, 'warn', `connector:${conn.provider}`, `GEO measurement failed for ${conn.name}`, { error });
   app.analytics.invalidate();
   return { completed, failed };
+}
+
+/** Scheduled: measures the active prompt library with every GEO provider that is connected and still ready. */
+export async function measureAllGeo(app: AppContext): Promise<Record<string, unknown>> {
+  const conns = await app.db.select().from(dataConnections).where(and(inArray(dataConnections.provider, [...GEO_API_PROVIDERS]), inArray(dataConnections.status, ['connected', 'degraded'])));
+  const ready = conns.filter((c) => !geoMeasureBlocker({ ...c, hasSecret: !!c.secretCiphertext }));
+  if (!ready.length) return { queued: 0, reason: 'no_connected_provider' };
+  const prompts = await app.db.select({ key: geoPrompts.key }).from(geoPrompts).where(eq(geoPrompts.active, true));
+  for (const c of ready) await app.jobs.enqueue('geo.measure', { connectionId: c.id, promptKeys: prompts.map((p) => p.key) }, { maxAttempts: 1, dedupeKey: `geo:${c.id}` });
+  return { queued: ready.length, prompts: prompts.length };
 }

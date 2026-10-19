@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 import type { Hono } from 'hono';
 import { loadEnv } from './env';
@@ -6,7 +6,10 @@ import { bootstrap, shutdown } from './bootstrap';
 import { createApp } from './app';
 import { createLogger } from './logger';
 import type { AppContext, HonoEnv } from './context';
-import { auditLogs, dataConnections, recommendations } from './db/schema';
+import { auditLogs, dataConnections, geoMeasurements, jobs, recommendations, syncExecutions } from './db/schema';
+import { measureAllGeo, runGeoMeasurements } from './connectors/sync';
+import { AnalyticsService } from './analytics/service';
+import { queueAuthorisedCrawls } from './seo/crawler';
 import { resetRateLimits } from './auth/middleware';
 import { signDrupal } from './connectors/drupal';
 
@@ -34,8 +37,9 @@ const EXEC = 'demo.executive@veolia.example';
 const FR_EDITOR = 'demo.fr-editor@veolia.example';
 
 beforeAll(async () => {
-  const env = loadEnv({ VDI_SKIP_DOTENV: '1', NODE_ENV: 'test', APP_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString('base64'), DEMO_USERS_PASSWORD: DEMO_PW, SEED_ADMIN_PASSWORD: 'Super-Admin-Passw0rd!', CRAWLER_EXTRA_ALLOWED_HOSTS: '127.0.0.1:1' } as NodeJS.ProcessEnv);
-  app = await bootstrap({ env, memoryDb: true, startJobs: false, log: createLogger('error', true) });
+  const env = loadEnv({ VDI_SKIP_DOTENV: '1', NODE_ENV: 'test', APP_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString('base64'), DEMO_USERS_PASSWORD: DEMO_PW, SEED_ADMIN_PASSWORD: 'Super-Admin-Passw0rd!', CRAWLER_EXTRA_ALLOWED_HOSTS: '127.0.0.1:1', DATABASE_URL: process.env.TEST_DATABASE_URL ?? '' } as NodeJS.ProcessEnv);
+  // embedded in-memory database by default; TEST_DATABASE_URL runs the same suite against a real (empty) PostgreSQL
+  app = await bootstrap({ env, memoryDb: !process.env.TEST_DATABASE_URL, startJobs: false, log: createLogger('error', true) });
   http = createApp(app);
 });
 
@@ -234,6 +238,29 @@ describe('module endpoints', () => {
     expect(j).not.toHaveProperty('total');
   });
 
+  it('uses the registry for account names, reported metrics and derived dimensions', async () => {
+    const accounts = (await (await as(ADMIN).get('/api/admin/social-accounts')).json()) as Array<{ id: string; key: string; name: string; language: 'en' | 'fr'; metrics: string[] }>;
+    const li = accounts.find((a) => a.key === 'li-fr')!;
+    const q = { metrics: ['social_impressions'], from: '2026-09-01', to: '2026-09-30', compare: 'none', groupBy: 'account', filters: { language: ['fr'] } };
+    const keys = async () => ((await (await as(ANALYST).send('POST', '/api/analytics/query', q)).json()) as { results: Array<{ rows: Array<{ key: string }> }> }).results[0].rows.map((r) => r.key);
+    expect(await keys()).toContain('li-fr');
+    expect((await as(ADMIN).send('PATCH', `/api/admin/social-accounts/${li.id}`, { name: 'Veolia France (renamed)', language: 'en', metrics: ['followers', 'social_posts'] })).status).toBe(200);
+    expect(await keys()).not.toContain('li-fr');
+    const social = (await (await as(ANALYST).get('/api/social/accounts?from=2026-09-01&to=2026-09-30')).json()) as { accounts: Array<{ key: string; name: string; reported: string[] }> };
+    expect(social.accounts.find((a) => a.key === 'li-fr')).toMatchObject({ name: 'Veolia France (renamed)', reported: ['followers', 'social_posts'] });
+    await as(ADMIN).send('PATCH', `/api/admin/social-accounts/${li.id}`, { name: li.name, language: li.language, metrics: li.metrics });
+    expect(await keys()).toContain('li-fr');
+  });
+
+  it('another instance rebuilds its dataset after a change saved elsewhere', async () => {
+    const other = new AnalyticsService({ db: app.db, orgId: app.orgId, envDemoMode: app.env.DEMO_MODE, versionCheckMs: 0 });
+    const before = await other.dataset();
+    expect(await other.dataset()).toBe(before);
+    app.analytics.invalidate();
+    await app.analytics.dataset();
+    expect(await other.dataset()).not.toBe(before);
+  });
+
   it('global search finds content, keywords and prompts', async () => {
     const j = (await (await as(ANALYST).get('/api/me/search?q=pfas')).json()) as { results: Array<{ type: string }> };
     const types = new Set(j.results.map((r) => r.type));
@@ -410,5 +437,86 @@ describe('imports and webhooks (run last: they introduce real data)', () => {
     const rows = await app.db.select().from(factRows).where(eq(factRows.connectionId, conn.id));
     expect(JSON.stringify(rows)).not.toContain('person@example.com');
     expect(rows[0].measures.submissions).toBe(1);
+  });
+});
+
+describe('scheduled jobs and GEO activation (run last: they introduce real GEO data)', () => {
+  const SUPER = 'admin@veolia.example';
+  const superAdmin = async () => {
+    resetRateLimits();
+    const res = await http.request('/api/auth/login', { method: 'POST', headers: H, body: JSON.stringify({ email: SUPER, password: 'Super-Admin-Passw0rd!' }) });
+    expect(res.status).toBe(200);
+    const cookie = res.headers.get('set-cookie')!.split(';')[0];
+    return (method: string, path: string, body?: unknown) => http.request(path, { method, headers: { ...H, cookie }, body: body === undefined ? undefined : JSON.stringify(body) });
+  };
+
+  it('adds the GEO and crawl schedules disabled, and re-enabling starts from the next slot', async () => {
+    const sys = (await (await as(ADMIN).get('/api/admin/system')).json()) as { schedules: Array<{ id: string; jobType: string; enabled: boolean; nextRunAt: string; frequencyLabel: { en: string } }> };
+    const geo = sys.schedules.find((x) => x.jobType === 'geo.measure_all')!;
+    const crawl = sys.schedules.find((x) => x.jobType === 'seo.crawl_all')!;
+    expect(geo.enabled).toBe(false);
+    expect(crawl.enabled).toBe(false);
+    expect(geo.frequencyLabel.en).toBe('Every Monday at 06:00');
+    expect((await as(ADMIN).send('PATCH', `/api/admin/system/schedules/${geo.id}`, { enabled: true })).status).toBe(200);
+    const after = (await (await as(ADMIN).get('/api/admin/system')).json()) as typeof sys;
+    expect(new Date(after.schedules.find((x) => x.id === geo.id)!.nextRunAt).getTime()).toBeGreaterThan(Date.now());
+    await as(ADMIN).send('PATCH', `/api/admin/system/schedules/${geo.id}`, { enabled: false });
+    // nothing is sent while no provider is connected and approved
+    expect(await measureAllGeo(app)).toEqual({ queued: 0, reason: 'no_connected_provider' });
+    const res = await queueAuthorisedCrawls(app);
+    const queued = await app.db.select().from(jobs).where(eq(jobs.type, 'crawl.run'));
+    expect(res.queued).toBeLessThanOrEqual(Number(res.authorisedScopes));
+    expect(queued.length).toBeGreaterThanOrEqual(Number(res.queued));
+  });
+
+  it('measures GEO prompts only in API mode with a key, a model and a super administrator approval', async () => {
+    const list = async () => (await (await as(ADMIN).get('/api/admin/integrations')).json()) as Array<{ id: string; provider: string; status: string; geo: { blocker: string | null; approval: { approvedByName: string } | null } | null }>;
+    const conn = (await list()).find((c) => c.provider === 'geo_perplexity')!;
+    expect(conn.geo!.blocker).toBe('not_api_mode');
+    const measure = () => as(ADMIN).send('POST', '/api/geo/measure', { provider: 'geo_perplexity' });
+    const refused = await measure();
+    expect(refused.status).toBe(409);
+    expect(((await refused.json()) as { error: { details: { blocker: string } } }).error.details.blocker).toBe('not_api_mode');
+
+    // the approval cannot be written through the generic configuration route
+    await as(ADMIN).send('PATCH', `/api/admin/integrations/${conn.id}`, { mode: 'api', config: { model: 'sonar', processingApproval: { approvedAt: '2026-01-01T00:00:00Z' } } });
+    await as(ADMIN).send('PUT', `/api/admin/integrations/${conn.id}/secret`, { values: { apiKey: 'pplx-test-key' } });
+    expect((await list()).find((c) => c.id === conn.id)!.geo!.blocker).toBe('not_approved');
+    expect((await measure()).status).toBe(409);
+
+    // approval needs the super administrator and the typed confirmation
+    expect((await as(ADMIN).send('POST', `/api/admin/integrations/${conn.id}/approval`, { approved: true, confirmation: 'APPROVE' })).status).toBe(403);
+    const sa = await superAdmin();
+    expect((await sa('POST', `/api/admin/integrations/${conn.id}/approval`, { approved: true })).status).toBe(422);
+    expect((await sa('POST', `/api/admin/integrations/${conn.id}/approval`, { approved: true, confirmation: 'APPROVE' })).status).toBe(200);
+    const approved = (await list()).find((c) => c.id === conn.id)!;
+    expect(approved.geo).toMatchObject({ blocker: null, approval: { approvedByName: expect.any(String) } });
+    expect(approved.status).not.toBe('connected');
+    const meta = (await (await as(ANALYST).get('/api/meta')).json()) as { connections: Array<{ provider: string; measurable?: boolean; config?: unknown }> };
+    const metaConn = meta.connections.find((c) => c.provider === 'geo_perplexity')!;
+    expect(metaConn.measurable).toBe(true);
+    expect(metaConn.config).toBeUndefined();
+    expect((await measure()).status).toBe(202);
+
+    // a real answer (stubbed here) is what makes the provider Connected
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ model: 'sonar', choices: [{ message: { content: 'Veolia and others treat industrial water.' } }], citations: ['https://www.veolia.com/en/solutions'] }), { status: 200 }));
+    try {
+      expect(await runGeoMeasurements(app, conn.id, ['p01'])).toEqual({ completed: 1, failed: 0 });
+      expect(String(fetchSpy.mock.calls[0][0])).toBe('https://api.perplexity.ai/chat/completions');
+    } finally {
+      fetchSpy.mockRestore();
+    }
+    const [row] = await app.db.select().from(dataConnections).where(eq(dataConnections.id, conn.id));
+    const execs = await app.db.select().from(syncExecutions).where(eq(syncExecutions.connectionId, conn.id));
+    const stored = await app.db.select().from(geoMeasurements).where(eq(geoMeasurements.origin, 'api'));
+    expect(row.status).toBe('connected');
+    expect(execs.find((e) => e.kind === 'measure')).toMatchObject({ status: 'succeeded', rowsWritten: 1 });
+    expect(stored).toHaveLength(1);
+    expect(stored[0]).toMatchObject({ promptKey: 'p01', provider: 'perplexity_api', status: 'completed', mentioned: true, cited: true });
+
+    // revoking stops further measurements
+    expect((await sa('POST', `/api/admin/integrations/${conn.id}/approval`, { approved: false })).status).toBe(200);
+    expect((await list()).find((c) => c.id === conn.id)!.geo!.blocker).toBe('not_approved');
+    expect((await measure()).status).toBe(409);
   });
 });

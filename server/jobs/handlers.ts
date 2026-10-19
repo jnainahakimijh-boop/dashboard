@@ -4,8 +4,8 @@ import { purgeExpiredSessions } from '../auth/session';
 import { auditLogs, factRows, geoMeasurements, jobs as jobsTable, organizations, reportRuns } from '../db/schema';
 import { evaluateAlertRules } from '../insights/alerts';
 import { generateRecommendations } from '../insights/recommendations';
-import { runGeoMeasurements, syncAllConnected, syncConnection } from '../connectors/sync';
-import { runCrawlJob } from '../seo/crawler';
+import { measureAllGeo, runGeoMeasurements, syncAllConnected, syncConnection } from '../connectors/sync';
+import { queueAuthorisedCrawls, runCrawlJob } from '../seo/crawler';
 import { runReportSchedule } from '../reports/service';
 import type { JobQueue } from './queue';
 
@@ -22,6 +22,8 @@ export function registerJobHandlers(q: JobQueue): void {
     const p = job.payload as { connectionId: string; promptKeys: string[] };
     return runGeoMeasurements(app, p.connectionId, p.promptKeys);
   });
+  q.register('geo.measure_all', async (_job, app) => measureAllGeo(app));
+  q.register('seo.crawl_all', async (_job, app) => queueAuthorisedCrawls(app));
   q.register('report.scheduled', async (job, app) => runReportSchedule(app, String((job.payload as { reportScheduleId: string }).reportScheduleId)));
   q.register('maintenance.cleanup', async (_job, app) => {
     await purgeExpiredSessions(app);

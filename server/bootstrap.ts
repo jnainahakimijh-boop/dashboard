@@ -8,6 +8,7 @@ import { SecretBox } from './security/crypto';
 import { AnalyticsService } from './analytics/service';
 import { JobQueue } from './jobs/queue';
 import { registerJobHandlers } from './jobs/handlers';
+import { ensureSystemSchedules } from './jobs/system';
 import { initialiseDerivedData } from './insights/bootstrap';
 
 export interface BootstrapOptions {
@@ -23,6 +24,8 @@ export async function bootstrap(opts: BootstrapOptions = {}): Promise<AppContext
   const dbh = await openDb({ databaseUrl: env.DATABASE_URL || undefined, dataDir: env.DATA_DIR, memory: opts.memoryDb });
   await dbh.migrate();
   const { orgId, created } = await seedIfEmpty(dbh.db, env, (m) => log.info(`seed: ${m}`));
+  const addedSchedules = await ensureSystemSchedules(dbh.db, orgId);
+  if (addedSchedules) log.info('system schedules added', { count: addedSchedules });
   const jobs = new JobQueue();
   const app: AppContext = {
     env,

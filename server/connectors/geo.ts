@@ -6,7 +6,23 @@
  *   - Perplexity chat completions (returns citations)
  *  Disabled until an administrator stores a key and approves use.
  *  ------------------------------------------------------------------ */
-import { httpJson, type ConnectorDef } from './types';
+import { httpJson, type Connection, type ConnectorDef } from './types';
+
+export const GEO_API_PROVIDERS = ['geo_openai', 'geo_perplexity'] as const;
+/** Connection config key holding the recorded approval; never writable through the generic configuration route. */
+export const GEO_APPROVAL_KEY = 'processingApproval';
+export type GeoBlocker = 'not_api_mode' | 'paused' | 'no_api_key' | 'no_model' | 'not_approved';
+
+/** Why a GEO provider cannot be queried yet, or null when it can (API mode, not paused, key, model and recorded approval). */
+export function geoMeasureBlocker(conn: Pick<Connection, 'mode' | 'status' | 'config'> & { hasSecret: boolean }): GeoBlocker | null {
+  if (conn.mode !== 'api') return 'not_api_mode';
+  if (conn.status === 'paused') return 'paused';
+  if (!conn.hasSecret) return 'no_api_key';
+  if (!String(conn.config?.model ?? '').trim()) return 'no_model';
+  const approval = conn.config?.[GEO_APPROVAL_KEY] as { approvedAt?: string } | undefined;
+  if (!approval?.approvedAt) return 'not_approved';
+  return null;
+}
 
 export interface GeoAnswer {
   text: string;
@@ -98,7 +114,7 @@ const geoReadiness = (docs: string[], name: string) => ({
   verifiedLive: false,
   docs,
   credentials: `${name} API key (paid usage — requires authorisation before purchase)`,
-  prerequisites: { en: 'Store an API key, choose a model, and approve sending the prompt texts (public questions) to the provider.', fr: 'Enregistrer une clé, choisir un modèle et approuver l’envoi des prompts (questions publiques) au fournisseur.' },
+  prerequisites: { en: 'Switch to API mode, store an API key and choose a model. A super administrator then approves sending the prompt texts (public questions) to the provider. The status becomes Connected after the first completed measurement.', fr: 'Passer en mode API, enregistrer une clé et choisir un modèle. Un super administrateur approuve ensuite l’envoi des prompts (questions publiques) au fournisseur. Le statut devient Connecté après la première mesure réussie.' },
   limitations: { en: 'API answers can differ from what end users see in consumer apps; results vary with model version, location and time. Not tested live from this environment.', fr: 'Les réponses API peuvent différer de celles vues par les utilisateurs ; elles varient selon le modèle, le lieu et le moment. Non testé en réel.' },
 });
 

@@ -3,7 +3,14 @@ import type { Unit } from '@shared/metrics';
 
 export type Lang = 'en' | 'fr';
 
-export function fmt(value: number | null | undefined, unit: Unit, lang: Lang, currency = 'EUR'): string {
+/** Currency of monetary values (the organisation's reporting currency; amounts are never converted). */
+let reportingCurrency = 'EUR';
+export function setReportingCurrency(code: string | null | undefined): void {
+  if (code && /^[A-Z]{3}$/.test(code)) reportingCurrency = code;
+}
+export const getReportingCurrency = (): string => reportingCurrency;
+
+export function fmt(value: number | null | undefined, unit: Unit, lang: Lang, currency: string = reportingCurrency): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return '—';
   const loc = lang === 'fr' ? 'fr-FR' : 'en-GB';
   switch (unit) {

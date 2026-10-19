@@ -73,9 +73,22 @@ export interface DateRange {
   to: IsoDate;
 }
 
-/** Resolve a preset relative to the last complete day (`asOf`). */
-export function resolvePreset(preset: Exclude<RangePreset, 'custom'>, asOf: IsoDate): DateRange {
+/** Month `k` months after (y, m), as [year, month]. */
+function shiftMonth(y: number, m: number, k: number): [number, number] {
+  const idx = y * 12 + (m - 1) + k;
+  return [Math.floor(idx / 12), (idx % 12) + 1];
+}
+
+/** Resolve a preset relative to the last complete day (`asOf`).
+ *  Year and quarter presets follow the fiscal year, which starts in `fiscalYearStartMonth` (1 = January). */
+export function resolvePreset(preset: Exclude<RangePreset, 'custom'>, asOf: IsoDate, fiscalYearStartMonth = 1): DateRange {
   const [y, m] = parts(asOf);
+  const fy = Math.min(12, Math.max(1, Math.trunc(fiscalYearStartMonth) || 1));
+  // first month of the current fiscal year and of the current fiscal quarter
+  const [fyY, fyM] = m >= fy ? [y, fy] : [y - 1, fy];
+  const monthsIn = (m - fy + 12) % 12;
+  const [qY, qM] = shiftMonth(fyY, fyM, Math.floor(monthsIn / 3) * 3);
+  const dayBefore = (yy: number, mm: number) => addDays(iso(yy, mm, 1), -1);
   switch (preset) {
     case 'last7':
       return { from: addDays(asOf, -6), to: asOf };
@@ -85,26 +98,20 @@ export function resolvePreset(preset: Exclude<RangePreset, 'custom'>, asOf: IsoD
       return { from: addDays(asOf, -89), to: asOf };
     case 'mtd':
       return { from: iso(y, m, 1), to: asOf };
-    case 'qtd': {
-      const qStart = Math.floor((m - 1) / 3) * 3 + 1;
-      return { from: iso(y, qStart, 1), to: asOf };
-    }
+    case 'qtd':
+      return { from: iso(qY, qM, 1), to: asOf };
     case 'ytd':
-      return { from: iso(y, 1, 1), to: asOf };
+      return { from: iso(fyY, fyM, 1), to: asOf };
     case 'prevMonth': {
-      const pm = m === 1 ? 12 : m - 1;
-      const py = m === 1 ? y - 1 : y;
+      const [py, pm] = shiftMonth(y, m, -1);
       return { from: iso(py, pm, 1), to: iso(py, pm, lastDayOfMonth(py, pm)) };
     }
     case 'prevQuarter': {
-      const q = Math.floor((m - 1) / 3);
-      const pq = q === 0 ? 3 : q - 1;
-      const py = q === 0 ? y - 1 : y;
-      const start = pq * 3 + 1;
-      return { from: iso(py, start, 1), to: iso(py, start + 2, lastDayOfMonth(py, start + 2)) };
+      const [py, pm] = shiftMonth(qY, qM, -3);
+      return { from: iso(py, pm, 1), to: dayBefore(qY, qM) };
     }
     case 'prevYear':
-      return { from: iso(y - 1, 1, 1), to: iso(y - 1, 12, 31) };
+      return { from: iso(fyY - 1, fyM, 1), to: dayBefore(fyY, fyM) };
   }
 }
 

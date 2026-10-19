@@ -315,12 +315,13 @@ function Measurements() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState('');
   const q = useApi<{ items: Measurement[]; total: number; page: number; pageSize: number; mode: string }>('/api/geo/measurements', { ...gf.params, status, page, pageSize: 50 });
-  const connected = meta.data?.connections.some((c) => (c.provider === 'geo_openai' || c.provider === 'geo_perplexity') && c.status === 'connected');
+  // providers in API mode with a key, a model and a recorded approval; the server re-checks each run
+  const ready = (meta.data?.connections ?? []).filter((c) => c.measurable);
+  const connected = ready.length > 0;
   const provName = (id: string) => meta.data?.catalog.geoProviders.find((p) => p.id === id)?.name ?? id;
   const run = async () => {
     try {
-      const conn = meta.data?.connections.find((c) => (c.provider === 'geo_openai' || c.provider === 'geo_perplexity') && c.status === 'connected');
-      await api.send('POST', '/api/geo/measure', { provider: conn?.provider });
+      for (const c of ready) await api.send('POST', '/api/geo/measure', { provider: c.provider });
       toast(t('geo.measureQueued'), 'pos');
       void qc.invalidateQueries({ predicate: (x) => String(x.queryKey[0]).startsWith('/api/geo') });
     } catch (e) {

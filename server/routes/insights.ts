@@ -7,7 +7,7 @@ import { can } from '@shared/rbac';
 import { requirePermission } from '../auth/middleware';
 import { audit } from '../audit';
 import { HttpError, currentUser, type HonoEnv, type Ctx } from '../context';
-import { alertEvents, metricTargets, notifications, recommendationComments, recommendationHistory, recommendations, users } from '../db/schema';
+import { aiSettings, alertEvents, metricTargets, notifications, recommendationComments, recommendationHistory, recommendations, users } from '../db/schema';
 import { buildExecutiveSummary, summaryToText } from '../insights/summary';
 import { generateRecommendations } from '../insights/recommendations';
 import { explainFacts, aiStatus } from '../ai/provider';
@@ -27,13 +27,16 @@ export function insightsRoutes() {
     const p = periodParams(c, { from: addDays(asOf, -29), to: asOf });
     const metrics = c.req.query('metrics')?.split(',').filter(Boolean).slice(0, 20);
     const summary = await buildExecutiveSummary(app, user, { from: p.range.from, to: p.range.to, compare: p.compare, filters: p.filters, metrics });
-    let narrative: { text: string | null; reason: string } | null = null;
+    let narrative: { text: string | null; reason: string; reviewRequired: boolean } | null = null;
     if (c.req.query('narrative') === '1') {
-      if (!can(user.role, 'ai.generate')) narrative = { text: null, reason: 'forbidden' };
+      // AI text is presented as a draft to check before sharing unless an administrator turned review off
+      const [ai] = await app.db.select({ review: aiSettings.requireHumanReview }).from(aiSettings).where(eq(aiSettings.orgId, app.orgId));
+      const reviewRequired = ai?.review ?? true;
+      if (!can(user.role, 'ai.generate')) narrative = { text: null, reason: 'forbidden', reviewRequired };
       else {
         const lang = c.req.query('lang') === 'en' ? 'en' : 'fr';
         const res = await explainFacts(app, 'executive_summary', { summary: summaryToText(summary, lang) }, lang, user.id);
-        narrative = { text: res.text, reason: res.status.reason };
+        narrative = { text: res.text, reason: res.status.reason, reviewRequired };
         if (res.text) await audit(c, { action: 'ai.summary.generate', details: { provider: res.status.provider, model: res.status.model } });
       }
     }

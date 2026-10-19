@@ -29,11 +29,12 @@ function OrgDefaults() {
   const meta = useMeta();
   const { applyOrgTheme } = usePrefs();
   const st = meta.data?.org.settings;
+  const currency = meta.data?.org.currency;
   useEffect(() => {
     if (!st) return;
-    configureFormatting({ numberLocale: st.numberLocale, dateFormat: st.dateFormat });
+    configureFormatting({ numberLocale: st.numberLocale, dateFormat: st.dateFormat, currency });
     applyOrgTheme(st.defaultTheme);
-  }, [st, applyOrgTheme]);
+  }, [st, currency, applyOrgTheme]);
   return null;
 }
 

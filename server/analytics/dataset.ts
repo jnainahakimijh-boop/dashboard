@@ -53,19 +53,47 @@ export interface Dataset {
 
 /* ---------------- virtual dimensions ---------------- */
 
-const SITE = new Map(SITES.map((s) => [s.id, s]));
+// Lookups for derived dimensions. They start from the catalogue and are refreshed from the
+// administrators' registry (websites, social accounts, campaigns, ads) at each dataset build.
+const SITE = new Map<string, { language: string }>(SITES.map((s) => [s.id, s]));
 const COUNTRY = new Map(COUNTRIES.map((c) => [c.id, c]));
 const PAGE = new Map(PAGES.map((p) => [p.id, p]));
 const QUERY = new Map(QUERIES.map((q) => [q.id, q]));
 /** Branded search queries: the brand name, including common misspellings. */
 const BRAND_QUERY = /v[eé]olia|veolya|veollia/i;
-const ACCOUNT = new Map(SOCIAL_ACCOUNTS.map((a) => [a.id, a]));
-const AD = new Map(ADS.map((a) => [a.id, a]));
-const AD_GROUP = new Map(AD_GROUPS.map((g) => [g.id, g]));
-const AD_CAMPAIGN = new Map(AD_CAMPAIGNS.map((c) => [c.id, c]));
+const ACCOUNT = new Map<string, { platform: string; language: string }>(SOCIAL_ACCOUNTS.map((a) => [a.id, a]));
+const AD = new Map<string, { group: string; site: string | null }>(ADS.map((a) => [a.id, a]));
+const AD_GROUP = new Map<string, { campaign: string }>(AD_GROUPS.map((g) => [g.id, g]));
+const AD_CAMPAIGN = new Map<string, { id: string; category: string; utmCampaign: string | null; businessUnit: string | null }>(AD_CAMPAIGNS.map((c) => [c.id, c]));
 const TOPIC_BU = new Map(TOPICS.map((t) => [t.id, t.bu]));
 const CAMPAIGN_BY_UTM = new Map(CAMPAIGNS.map((c) => [c.utm, c.id]));
 const CAMPAIGN_BY_AD_CAMPAIGN = new Map(AD_CAMPAIGNS.map((c) => [c.id, CAMPAIGN_BY_UTM.get(c.utmCampaign) ?? c.id]));
+
+/** Registry rows maintained in Administration. */
+export interface Registry {
+  sites: Array<{ key: string; language: string }>;
+  accounts: Array<{ key: string; platform: string; language: string }>;
+  campaigns: Array<{ key: string; utm: string }>;
+  adCampaigns: Array<{ key: string; category: string; utmCampaign: string | null; businessUnit: string | null }>;
+  adGroups: Array<{ key: string; campaign: string }>;
+  ads: Array<{ key: string; group: string; site: string | null }>;
+}
+
+/** Applies the registry on top of the catalogue, so websites, accounts and ads added or edited by
+ *  administrators get their language, platform, campaign and category in every breakdown. */
+export function applyRegistry(r: Registry, tables: Array<TableData | undefined>): void {
+  for (const x of r.sites) SITE.set(x.key, { language: x.language });
+  for (const x of r.accounts) ACCOUNT.set(x.key, { platform: x.platform, language: x.language });
+  for (const x of r.campaigns) CAMPAIGN_BY_UTM.set(x.utm, x.key);
+  for (const x of r.adCampaigns) {
+    AD_CAMPAIGN.set(x.key, { id: x.key, category: x.category, utmCampaign: x.utmCampaign, businessUnit: x.businessUnit });
+    CAMPAIGN_BY_AD_CAMPAIGN.set(x.key, (x.utmCampaign && CAMPAIGN_BY_UTM.get(x.utmCampaign)) || x.key);
+  }
+  for (const x of r.adGroups) AD_GROUP.set(x.key, { campaign: x.campaign });
+  for (const x of r.ads) AD.set(x.key, { group: x.group, site: x.site });
+  // mapped keys are cached per table; drop them so the new attributes apply
+  for (const t of tables) if (t) t.vcache = undefined;
+}
 
 export interface VirtualDim {
   phys: string;
@@ -73,7 +101,7 @@ export interface VirtualDim {
 }
 
 const id = (phys: string): VirtualDim => ({ phys, map: (k) => k });
-const siteLang: VirtualDim = { phys: 'site', map: (k) => SITE.get(k as never)?.language };
+const siteLang: VirtualDim = { phys: 'site', map: (k) => SITE.get(k)?.language };
 const pageAttr = (f: (p: (typeof PAGES)[number]) => string): VirtualDim => ({ phys: 'page', map: (k) => (PAGE.has(k) ? f(PAGE.get(k)!) : '(unassigned)') });
 const adCampaignOf = (adKey: string) => {
   const ad = AD.get(adKey);
@@ -142,8 +170,8 @@ export const VDIMS: Record<TableId, Partial<Record<DimensionId, VirtualDim>>> = 
     adCampaign: { phys: 'ad', map: (k) => adCampaignOf(k)?.id },
     adCategory: { phys: 'ad', map: (k) => adCampaignOf(k)?.category },
     campaign: { phys: 'ad', map: (k) => CAMPAIGN_BY_AD_CAMPAIGN.get(adCampaignOf(k)?.id ?? '') },
-    site: { phys: 'ad', map: (k) => AD.get(k)?.site },
-    language: { phys: 'ad', map: (k) => SITE.get(AD.get(k)?.site as never)?.language },
+    site: { phys: 'ad', map: (k) => AD.get(k)?.site ?? undefined },
+    language: { phys: 'ad', map: (k) => SITE.get(AD.get(k)?.site ?? '')?.language },
     bu: { phys: 'ad', map: (k) => adCampaignOf(k)?.businessUnit },
   },
   forms: { site: id('site'), language: siteLang, form: id('form') },

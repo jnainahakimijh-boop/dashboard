@@ -78,6 +78,7 @@ export const social: Messages = {
     cellLabel: '{day} {slot}: {n} posts, median rate {rate}',
     xGapNote: 'X data can contain collection gaps: missing days are reported, never filled with zeros.',
     ytNote: 'YouTube reports views and watch time; thumbnail impressions are a different measure from post impressions.',
+    notReportedNote: '— = indicator not reported for this account (Administration → Social accounts).',
     saved: 'Classification saved',
   },
   fr: {
@@ -157,6 +158,7 @@ export const social: Messages = {
     cellLabel: '{day} {slot} : {n} publications, taux médian {rate}',
     xGapNote: 'Les données X peuvent présenter des interruptions de collecte : les jours manquants sont signalés, jamais remplacés par zéro.',
     ytNote: 'YouTube fournit vues et durée de visionnage ; les impressions de miniatures sont une autre mesure que les impressions de publications.',
+    notReportedNote: '— = indicateur non suivi pour ce compte (Administration → Comptes sociaux).',
     saved: 'Qualification enregistrée',
   },
 };

@@ -55,6 +55,8 @@ export interface EngineContext {
   dataset: Dataset;
   /** GA4 events counted as conversions (KPI registry) */
   conversionEvents: string[];
+  /** website key → its own conversion events, when an administrator set them (otherwise `conversionEvents`) */
+  siteConversionEvents?: Record<string, string[]>;
   trackedKeywords: TrackedKeyword[];
   geoPrompts: Map<string, GeoPromptAttrs>;
   /** server-side data scope of the requesting user (websites) */
@@ -137,7 +139,7 @@ function contradiction(fixed: FixedFilter | undefined, filters: Filters): Dimens
 interface ScanSpec {
   td: TableData;
   agg: SimpleAgg;
-  measures: string[];
+  measures: Expanded;
   constraints: Constraints;
   range: DateRange;
   buckets: Bucket[] | null;
@@ -219,7 +221,19 @@ function scan(spec: ScanSpec): ScanOut {
     }
   }
 
-  const cols = measures.map((m) => t.meas[m]).filter(Boolean);
+  const present = measures.measures.map((m, j) => [t.meas[m], measures.gates[j]] as const).filter(([c]) => !!c);
+  const cols = present.map(([c]) => c);
+  const gates = present.map(([, g]) => g);
+  const gated = gates.some((g) => g !== null);
+  const siteCol = gated ? t.dims.site : null;
+  const nCols = cols.length;
+  const rowValue = (i: number) => {
+    let v = 0;
+    if (siteCol) {
+      for (let j = 0; j < nCols; j++) if (!gates[j] || gates[j]![siteCol[i]]) v += cols[j][i];
+    } else for (let j = 0; j < nCols; j++) v += cols[j][i];
+    return v;
+  };
   const [start, end] = t.rows(fromDay, toDay);
   const nMasks = masks.length;
 
@@ -235,8 +249,7 @@ function scan(spec: ScanSpec): ScanOut {
       for (let k = 0; k < nMasks; k++) if (!masks[k][1][masks[k][0][i]]) { ok = false; break; }
       if (!ok) continue;
       out.matched++;
-      let v = 0;
-      for (const c of cols) v += c[i];
+      const v = rowValue(i);
       const e = ent[i];
       lastTot[e] = v;
       if (lastB) {
@@ -261,8 +274,7 @@ function scan(spec: ScanSpec): ScanOut {
     for (let k = 0; k < nMasks; k++) if (!masks[k][1][masks[k][0][i]]) { ok = false; break; }
     if (!ok) continue;
     out.matched++;
-    let v = 0;
-    for (const c of cols) v += c[i];
+    const v = rowValue(i);
     out.total += v;
     if (bucketOf) {
       const b = bucketOf[t.day[i] - fromDay];
@@ -332,8 +344,31 @@ const emptyRaw = (notes: ResultNote[] = []): Raw => ({
   partialEntities: false,
 });
 
-function expandMeasures(ctx: EngineContext, measures: string[]): string[] {
-  return measures.flatMap((m) => (m === CONVERSION_MEASURES ? ctx.conversionEvents.map((e) => `ev_${e}`) : [m]));
+/** Measure columns to add up, each with an optional gate per site code (conversion events can differ by website). */
+interface Expanded {
+  measures: string[];
+  gates: Array<Uint8Array | null>;
+}
+
+function expandMeasures(ctx: EngineContext, td: TableData, measures: string[]): Expanded {
+  const out: Expanded = { measures: [], gates: [] };
+  const perSite = ctx.siteConversionEvents ?? {};
+  const sites = td.dicts.site;
+  for (const m of measures) {
+    if (m !== CONVERSION_MEASURES) {
+      out.measures.push(m);
+      out.gates.push(null);
+      continue;
+    }
+    const eventsOf = (site: string) => perSite[site] ?? ctx.conversionEvents;
+    const all = sites ? [...new Set([...ctx.conversionEvents, ...sites.flatMap((k) => eventsOf(k))])] : ctx.conversionEvents;
+    for (const e of all) {
+      const gate = sites ? Uint8Array.from(sites, (k) => (eventsOf(k).includes(e) ? 1 : 0)) : null;
+      out.measures.push(`ev_${e}`);
+      out.gates.push(gate && gate.every((x) => x === 1) ? null : gate);
+    }
+  }
+  return out;
 }
 
 function constraintsFor(ctx: EngineContext, td: TableData, agg: SimpleAgg, filters: Filters, apply: FilterKey[]): Constraints {
@@ -391,7 +426,7 @@ function evalSimple(ctx: EngineContext, agg: SimpleAgg, spec: EvalSpec, restrict
   const { td } = plan;
   const supported = restrict ? plan.supported.filter((k) => restrict.includes(k)) : plan.supported;
   const groupBy = q.groupBy && plan.groupOk ? q.groupBy : null;
-  const measures = expandMeasures(ctx, agg.measures);
+  const measures = expandMeasures(ctx, td, agg.measures);
   const constraints = constraintsFor(ctx, td, agg, filters, supported);
   const raw = emptyRaw();
   raw.available = true;
@@ -449,7 +484,7 @@ function evalSimple(ctx: EngineContext, agg: SimpleAgg, spec: EvalSpec, restrict
   return raw;
 }
 
-function seriesFor(td: TableData, agg: SimpleAgg, measures: string[], constraints: Constraints, buckets: Bucket[]) {
+function seriesFor(td: TableData, agg: SimpleAgg, measures: Expanded, constraints: Constraints, buckets: Bucket[]) {
   const cov = td.coverage!;
   const range: DateRange = { from: buckets[0].from, to: buckets[buckets.length - 1].to };
   const eff = clampRange(range, cov.from, cov.to);

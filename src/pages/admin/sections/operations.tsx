@@ -61,7 +61,7 @@ interface SystemInfo {
   recentJobs: Array<{ id: string; type: string; status: string; attempts: number; maxAttempts: number; lastError: string | null; createdAt: string; finishedAt: string | null }>;
   syncExecutions: Array<{ id: string; connectionName: string | null; status: string; kind: string; startedAt: string; rowsWritten: number; error: string | null }>;
   systemEvents: Array<{ id: string; level: string; source: string; message: string; createdAt: string }>;
-  schedules: Array<{ id: string; name: string; jobType: string; frequency: Record<string, unknown>; enabled: boolean; lastRunAt: string | null; nextRunAt: string | null }>;
+  schedules: Array<{ id: string; name: string; jobType: string; frequency: Record<string, unknown>; frequencyLabel: { en: string; fr: string }; enabled: boolean; lastRunAt: string | null; nextRunAt: string | null }>;
   failedImports: Array<{ id: string; dataset: string; fileName: string; status: string; rowsRejected: number; createdAt: string }>;
   rateLimited: Array<{ name: string; lastError: string }>;
 }
@@ -593,7 +593,13 @@ export function AiSection() {
 /* ---------------- system monitoring ---------------- */
 
 export function SystemSection() {
-  const { t, lang } = useI18n();
+  const { t, lang, L } = useI18n();
+  // stored names are English; known job types are shown in the interface language
+  const jobName = (x: { name: string; jobType: string }) => {
+    const key = `admin.job_${x.jobType.replace(/\./g, '_')}`;
+    const label = t(key);
+    return label === key ? x.name : label;
+  };
   const q = useApi<SystemInfo>('/api/admin/system', undefined, { refetchInterval: 30_000 });
   const retry = useAction<{ id: string }>('POST', (b) => `/api/admin/system/jobs/${b.id}/retry`, ['/api/admin/system']);
   const toggle = useAction<{ id: string; enabled: boolean }>('PATCH', (b) => `/api/admin/system/schedules/${b.id}`, ['/api/admin/system']);
@@ -650,17 +656,21 @@ export function SystemSection() {
         <CardHeader title={t('admin.scheduledJobs')} subtitle={t('admin.scheduledJobsHint')} />
         <CardBody>
           <ul className="flex flex-col divide-y divide-brd text-[13px]">
-            {d.schedules.map((s) => (
-              <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <span>
-                  <span className="font-medium">{s.name}</span> <code className="text-[11.5px] text-t3">{s.jobType}</code>
+            {[...d.schedules].sort((a, b) => jobName(a).localeCompare(jobName(b), lang)).map((s) => (
+              <li key={s.id} className="flex items-center justify-between gap-3 py-2">
+                <span className="min-w-0 flex-1">
+                  <span className="font-medium">{jobName(s)}</span> <code className="text-[11.5px] text-t3">{s.jobType}</code>
                   <span className="block text-[12px] text-t3">
-                    {t('admin.lastRun')}
+                    {L(s.frequencyLabel)} · {t('admin.lastRun')}
                     {t('common.colon')} {s.lastRunAt ? relativeTime(s.lastRunAt, lang) : t('admin.never')} · {t('reports.nextRun')}
-                    {t('common.colon')} {s.nextRunAt ? formatDateTime(s.nextRunAt, lang) : '—'}
+                    {t('common.colon')} {s.enabled && s.nextRunAt ? formatDateTime(s.nextRunAt, lang) : '—'}
                   </span>
+                  {s.jobType === 'geo.measure_all' && <span className="block text-[12px] text-t2">{t('admin.jobPaidNote')}</span>}
+                  {s.jobType === 'seo.crawl_all' && <span className="block text-[12px] text-t2">{t('admin.jobCrawlNote')}</span>}
                 </span>
-                <Switch checked={s.enabled} onChange={(v) => toggle.run({ id: s.id, enabled: v })} label={`${t('common.enabled')}: ${s.name}`} hideLabel />
+                <span className="shrink-0">
+                  <Switch checked={s.enabled} onChange={(v) => toggle.run({ id: s.id, enabled: v })} label={`${t('common.enabled')}: ${jobName(s)}`} hideLabel />
+                </span>
               </li>
             ))}
           </ul>

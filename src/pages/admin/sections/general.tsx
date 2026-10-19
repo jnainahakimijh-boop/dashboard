@@ -248,8 +248,8 @@ export function OrganizationSection() {
         <CardHeader title={t('admin.regional')} subtitle={t('admin.regionalHint')} />
         <CardBody>
           <fieldset disabled={!edit} className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <Field label={t('admin.timezone')} htmlFor="o-tz" hint={t('admin.timezoneHint')}>
-              <Input id="o-tz" value={f.timezone} onChange={(e) => setF({ ...f, timezone: e.target.value })} />
+            <Field label={t('admin.timezone')} htmlFor="o-tz" hint={t('admin.timezoneFixed')}>
+              <Input id="o-tz" value="Europe/Paris" readOnly />
             </Field>
             <Field label={t('admin.defaultLanguage')} htmlFor="o-lang">
               <Select id="o-lang" value={f.defaultLanguage} onChange={(e) => setF({ ...f, defaultLanguage: e.target.value as 'en' | 'fr' })}>
@@ -263,7 +263,7 @@ export function OrganizationSection() {
                 <Checkbox key={l} checked={langs.includes(l)} disabled={!edit || (langs.length === 1 && langs.includes(l))} onChange={(c) => setS({ supportedLanguages: c ? [...langs, l] : langs.filter((x) => x !== l) })} label={l === 'fr' ? 'Français' : 'English'} />
               ))}
             </div>
-            <Field label={t('admin.currency')} htmlFor="o-cur">
+            <Field label={t('admin.currency')} htmlFor="o-cur" hint={t('admin.currencyHint')}>
               <Input id="o-cur" value={f.currency} maxLength={3} onChange={(e) => setF({ ...f, currency: e.target.value.toUpperCase() })} />
             </Field>
             <Field label={t('admin.numberFormat')} htmlFor="o-num">
@@ -280,7 +280,7 @@ export function OrganizationSection() {
                 <option value="iso">2026-10-18 (ISO 8601)</option>
               </Select>
             </Field>
-            <Field label={t('admin.fiscalYear')} htmlFor="o-fy">
+            <Field label={t('admin.fiscalYear')} htmlFor="o-fy" hint={t('admin.fiscalYearHint')}>
               <Select id="o-fy" value={st.fiscalYearStartMonth ?? 1} onChange={(e) => setS({ fiscalYearStartMonth: Number(e.target.value) })}>
                 {Array.from({ length: 12 }, (_, i) => (
                   <option key={i} value={i + 1}>

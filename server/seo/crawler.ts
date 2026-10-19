@@ -254,3 +254,17 @@ export async function runCrawlJob(app: AppContext, crawlId: string): Promise<Rec
     throw err;
   }
 }
+
+/** Scheduled: queues one crawl per authorised, enabled scope that has no crawl in progress. */
+export async function queueAuthorisedCrawls(app: AppContext): Promise<Record<string, unknown>> {
+  const scopes = await app.db.select().from(seoCrawlScopes).where(and(eq(seoCrawlScopes.authorized, true), eq(seoCrawlScopes.enabled, true)));
+  let queued = 0;
+  for (const scope of scopes) {
+    const running = await app.db.select({ id: seoCrawls.id }).from(seoCrawls).where(and(eq(seoCrawls.scopeId, scope.id), inArray(seoCrawls.status, ['queued', 'running'])));
+    if (running.length) continue;
+    const [crawlRow] = await app.db.insert(seoCrawls).values({ scopeId: scope.id, status: 'queued', source: 'crawler' }).returning();
+    await app.jobs.enqueue('crawl.run', { crawlId: crawlRow.id }, { maxAttempts: 1 });
+    queued++;
+  }
+  return { queued, authorisedScopes: scopes.length };
+}

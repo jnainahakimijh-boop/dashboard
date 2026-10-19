@@ -35,6 +35,8 @@ export interface OrgUiSettings {
   defaultPeriod?: string;
   defaultCompare?: 'previous' | 'yoy' | 'none';
   defaultTheme?: 'light' | 'dark' | 'system';
+  /** 1 = January; year and quarter presets follow it */
+  fiscalYearStartMonth?: number;
 }
 
 export interface Meta {
@@ -42,9 +44,11 @@ export interface Meta {
   asOf: string;
   dataStart: string | null;
   sources: Record<string, SourceStatus>;
-  connections: Array<{ provider: string; status: string; name: string; mode: string; lastSuccessAt: string | null }>;
+  /** `measurable` is set for GEO API providers only */
+  connections: Array<{ provider: string; status: string; name: string; mode: string; lastSuccessAt: string | null; measurable?: boolean }>;
   sites: Array<{ key: string; name: string; domain: string; basePath: string; language: string; businessUnit: string | null; status: string }>;
-  accounts: Array<{ key: string; platform: string; name: string; handle: string | null; language: string; status: string }>;
+  /** `metrics`: indicators chosen by administrators for the account; empty = all supported */
+  accounts: Array<{ key: string; platform: string; name: string; handle: string | null; language: string; status: string; metrics: string[] }>;
   campaigns: Array<{ key: string; utm: string; name: L10n; from: string; to: string | null; topic: string | null; businessUnit: string | null; objective: string | null }>;
   taxonomy: Array<{ kind: string; key: string; label: L10n }>;
   competitors: Array<{ key: string; name: string; domain: string; isDemo: boolean }>;
@@ -86,7 +90,7 @@ export interface ExecutiveSummary {
   actions: SummaryItem[];
   limitations: SummaryItem[];
   generatedAt: string;
-  narrative: { text: string | null; reason: string } | null;
+  narrative: { text: string | null; reason: string; reviewRequired: boolean } | null;
   ai: { available: boolean; reason: string; provider: string; model: string | null };
 }
 

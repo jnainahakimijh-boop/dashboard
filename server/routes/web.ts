@@ -86,7 +86,10 @@ export function webRoutes() {
       }),
     );
     const [evTotals] = [Q({ metrics: EVENTS.map((e) => `ev_${e.id}`) })];
-    const events = EVENTS.map((e, i) => ({ id: e.id, name: e.name, keyEvent: e.keyEvent, conversion: ctx.conversionEvents.includes(e.id), drupalForm: e.drupalForm ?? null, count: evTotals[i].value, observed: (evTotals[i].value ?? 0) > 0 }));
+    // a single filtered website shows its own conversion events when an administrator set them
+    const oneSite = p.filters.site?.length === 1 ? p.filters.site[0] : null;
+    const conversionEvents = (oneSite && ctx.siteConversionEvents?.[oneSite]) || ctx.conversionEvents;
+    const events = EVENTS.map((e, i) => ({ id: e.id, name: e.name, keyEvent: e.keyEvent, conversion: conversionEvents.includes(e.id), drupalForm: e.drupalForm ?? null, count: evTotals[i].value, observed: (evTotals[i].value ?? 0) > 0 }));
     const [sessions] = Q({ metrics: ['sessions'] });
     const notes = [...new Map([...coverageBySite.flatMap((x) => x.meta.notes), ...sessions.meta.notes].map((n) => [JSON.stringify(n), n])).values()];
     return c.json({ range: p.range, coverageBySite, forms, untagged, events, channelSessions: acq.rows ?? [], notes, mode: sessions.meta.mode });

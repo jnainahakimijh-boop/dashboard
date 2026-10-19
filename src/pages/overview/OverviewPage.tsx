@@ -533,7 +533,10 @@ export function ExecutiveSummaryCard({ metrics, title, wid = 'sum' }: { metrics?
             </div>
             {s.narrative?.text && (
               <div className="rounded-lg border border-brd bg-card2 p-3 lg:col-span-2">
-                <p className="eyebrow mb-1">{t('overview.narrative')}</p>
+                <p className="eyebrow mb-1 flex flex-wrap items-center gap-2">
+                  {t('overview.narrative')}
+                  {s.narrative.reviewRequired && <Badge tone="warn">{t('overview.narrativeDraft')}</Badge>}
+                </p>
                 <p className="text-[13.5px] whitespace-pre-line">{s.narrative.text}</p>
               </div>
             )}

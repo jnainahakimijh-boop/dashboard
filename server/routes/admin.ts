@@ -13,6 +13,8 @@ import * as s from '../db/schema';
 import { hashPassword, passwordPolicyError } from '../security/crypto';
 import { CONNECTORS } from '../connectors/registry';
 import { testConnection } from '../connectors/sync';
+import { GEO_API_PROVIDERS, GEO_APPROVAL_KEY, geoMeasureBlocker } from '../connectors/geo';
+import { describeFrequency, nextRun, type Frequency } from '../jobs/schedule';
 import { warehouseTableCounts } from '../analytics/warehouse';
 import { TABLE_SCHEMAS as TABLES } from '../analytics/tables';
 import { IMPORT_SPECS, ImportConflict, runImport, templateCsv } from '../imports/import';
@@ -106,7 +108,8 @@ export function adminRoutes() {
     const [cur] = await app.db.select().from(s.organizations).where(eq(s.organizations.id, app.orgId));
     const { settings, ...rest } = d;
     await app.db.update(s.organizations).set({ ...rest, ...(settings ? { settings: { ...cur.settings, ...settings } } : {}), updatedAt: new Date() }).where(eq(s.organizations.id, app.orgId));
-    if (d.demoMode !== undefined) app.analytics.invalidate();
+    // demo mode, currency and conversion settings feed the analytics layer on every instance
+    app.analytics.invalidate();
     await audit(c, { action: 'org.update', entityType: 'organization', entityId: app.orgId, details: d });
     return c.json({ ok: true });
   });
@@ -211,17 +214,27 @@ export function adminRoutes() {
     const conns = await app.db.select().from(s.dataConnections).orderBy(asc(s.dataConnections.provider), asc(s.dataConnections.name));
     const execs = await app.db.select().from(s.syncExecutions).orderBy(desc(s.syncExecutions.startedAt)).limit(300);
     const [syncSchedule] = await app.db.select().from(s.schedules).where(eq(s.schedules.jobType, 'connectors.sync_all'));
+    const [geoSchedule] = await app.db.select().from(s.schedules).where(eq(s.schedules.jobType, 'geo.measure_all'));
+    const isGeo = (p: string) => (GEO_API_PROVIDERS as readonly string[]).includes(p);
     return c.json(
-      conns.map(({ secretCiphertext, ...cn }) => ({
+      conns.map(({ secretCiphertext, ...cn }) => {
+        const geoBlocker = isGeo(cn.provider) ? geoMeasureBlocker({ ...cn, hasSecret: !!secretCiphertext }) : null;
+        // only connections the scheduled jobs will actually pick up show a next run
+        const scheduled = ['connected', 'degraded'].includes(cn.status) && !!secretCiphertext && cn.mode === 'api';
+        const nextSyncAt = isGeo(cn.provider)
+          ? geoSchedule?.enabled && scheduled && !geoBlocker ? geoSchedule.nextRunAt : null
+          : syncSchedule?.enabled && scheduled && CONNECTORS[cn.provider]?.sync ? syncSchedule.nextRunAt : null;
+        return {
         ...cn,
         hasSecret: !!secretCiphertext,
-        // only API connections in a syncable state are picked up by the scheduled synchronisation
-        nextSyncAt: syncSchedule?.enabled && cn.mode === 'api' && CONNECTORS[cn.provider]?.sync && secretCiphertext && cn.status !== 'paused' ? syncSchedule.nextRunAt : null,
+        nextSyncAt,
+        geo: isGeo(cn.provider) ? { blocker: geoBlocker, approval: (cn.config[GEO_APPROVAL_KEY] as { approvedAt: string; approvedByName: string } | undefined) ?? null } : null,
         recordsProcessed: execs.find((e) => e.connectionId === cn.id && e.status === 'succeeded')?.rowsWritten ?? null,
         definition: CONNECTORS[cn.provider] ? { label: CONNECTORS[cn.provider].label, modes: CONNECTORS[cn.provider].modes, configFields: CONNECTORS[cn.provider].configFields, secretFields: CONNECTORS[cn.provider].secretFields, readiness: CONNECTORS[cn.provider].readiness, canSync: !!CONNECTORS[cn.provider].sync, canTest: !!CONNECTORS[cn.provider].test } : null,
         webhookPath: cn.provider === 'drupal' ? `/api/ingest/drupal/${cn.id}` : null,
         executions: execs.filter((e) => e.connectionId === cn.id).slice(0, 10),
-      })),
+        };
+      }),
     );
   });
 
@@ -235,7 +248,11 @@ export function adminRoutes() {
     if (d.mode && def && !def.modes.includes(d.mode)) throw new HttpError(422, `Mode ${d.mode} is not supported by ${def.label}`, 'validation');
     const set: Partial<typeof s.dataConnections.$inferInsert> = { updatedAt: new Date() };
     if (d.name) set.name = d.name;
-    if (d.config) set.config = { ...cur.config, ...d.config };
+    if (d.config) {
+      // the GEO approval is recorded only through its own audited route
+      const { [GEO_APPROVAL_KEY]: _reserved, ...cfg } = d.config;
+      set.config = { ...cur.config, ...cfg };
+    }
     if (d.mode && d.mode !== cur.mode) {
       set.mode = d.mode;
       // switching mode never claims a connection: demo → demo; others need a successful sync, test or import first
@@ -270,6 +287,22 @@ export function adminRoutes() {
     await app.db.update(s.dataConnections).set({ secretCiphertext: null, secretUpdatedAt: new Date(), status: 'not_configured', updatedAt: new Date() }).where(eq(s.dataConnections.id, id));
     app.analytics.invalidate();
     await audit(c, { action: 'integration.secret.delete', entityType: 'connection', entityId: id });
+    return c.json({ ok: true });
+  });
+
+  r.post('/integrations/:id/approval', requirePermission('ai.manage'), async (c) => {
+    const app = c.get('app');
+    const id = uuidParam(c);
+    const d = await body(c, z.object({ approved: z.boolean(), confirmation: z.string().optional() }));
+    const [cur] = await app.db.select().from(s.dataConnections).where(eq(s.dataConnections.id, id));
+    if (!cur) notFound('Connection');
+    if (!(GEO_API_PROVIDERS as readonly string[]).includes(cur.provider)) throw new HttpError(422, 'Approval applies to GEO measurement providers only', 'not_supported');
+    if (d.approved && d.confirmation !== 'APPROVE') throw new HttpError(422, 'Type APPROVE to confirm the organisation authorises sending the monitored prompt texts to this provider', 'confirmation_required');
+    const user = currentUser(c);
+    const { [GEO_APPROVAL_KEY]: _prev, ...rest } = cur.config;
+    const config = d.approved ? { ...rest, [GEO_APPROVAL_KEY]: { approvedAt: new Date().toISOString(), approvedBy: user.id, approvedByName: user.name } } : rest;
+    await app.db.update(s.dataConnections).set({ config, updatedAt: new Date() }).where(eq(s.dataConnections.id, id));
+    await audit(c, { action: d.approved ? 'integration.approval.grant' : 'integration.approval.revoke', entityType: 'connection', entityId: id, details: { provider: cur.provider } });
     return c.json({ ok: true });
   });
 
@@ -715,7 +748,7 @@ export function adminRoutes() {
       recentJobs: recentJobs.map((j) => ({ ...j, payload: undefined })),
       syncExecutions: syncs.map((x) => ({ ...x.e, connectionName: x.name })),
       systemEvents: events,
-      schedules,
+      schedules: schedules.map((x) => ({ ...x, frequencyLabel: { en: describeFrequency(x.frequency as Frequency, 'en'), fr: describeFrequency(x.frequency as Frequency, 'fr') } })),
     });
   });
   r.post('/system/jobs/:id/retry', requirePermission('system.view'), async (c) => {
@@ -731,7 +764,10 @@ export function adminRoutes() {
     const app = c.get('app');
     const id = uuidParam(c);
     const d = await body(c, z.object({ enabled: z.boolean() }));
-    await app.db.update(s.schedules).set(d).where(eq(s.schedules.id, id));
+    const [cur] = await app.db.select().from(s.schedules).where(eq(s.schedules.id, id));
+    if (!cur) notFound('Schedule');
+    // re-enabling starts from the next regular slot instead of catching up on missed runs
+    await app.db.update(s.schedules).set({ enabled: d.enabled, ...(d.enabled && !cur.enabled ? { nextRunAt: nextRun(cur.frequency as Frequency, new Date()) } : {}) }).where(eq(s.schedules.id, id));
     await audit(c, { action: 'schedule.update', entityType: 'schedule', entityId: id, details: d });
     return c.json({ ok: true });
   });

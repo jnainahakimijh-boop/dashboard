@@ -2,7 +2,7 @@
 import { Hono } from 'hono';
 import { inArray } from 'drizzle-orm';
 import { addDays } from '@shared/calendar';
-import { SOCIAL_ACCOUNTS } from '@shared/catalog';
+import { registeredAccounts } from '../analytics/registry';
 import { analyticsQuerySchema, type FilterKey } from '@shared/filters';
 import { requirePermission } from '../auth/middleware';
 import { currentUser, type HonoEnv, type Ctx } from '../context';
@@ -71,6 +71,7 @@ export function socialRoutes() {
     const tags = items.length ? await app.db.select().from(contentTags).where(inArray(contentTags.contentId, items.map((i) => i.id))) : [];
     const tagsByPost = new Map(items.map((i) => [i.sourceKey, tags.filter((t) => t.contentId === i.id).map((t) => t.tag)]));
     const overrides = new Map(items.map((i) => [i.sourceKey, i]));
+    const acct = await registeredAccounts(app.db);
     const totals = rows.reduce(
       (s, x) => ({ posts: s.posts + 1, impressions: s.impressions + (x.platform === 'youtube' ? 0 : x.impressions), engagements: s.engagements + (x.platform === 'youtube' ? 0 : x.engagements), videoViews: s.videoViews + x.videoViews, linkClicks: s.linkClicks + x.linkClicks }),
       { posts: 0, impressions: 0, engagements: 0, videoViews: 0, linkClicks: 0 },
@@ -96,7 +97,7 @@ export function socialRoutes() {
           rate: postRate(x),
           rateBasis: x.platform === 'youtube' ? 'views' : 'impressions',
           tags: tagsByPost.get(x.id) ?? [],
-          accountName: SOCIAL_ACCOUNTS.find((a) => a.id === x.account)?.name ?? x.account,
+          accountName: acct(x.account).name,
         };
       }),
     });
@@ -194,18 +195,20 @@ export function socialRoutes() {
     const platformRows = runQuery(ctx, analyticsQuerySchema.parse({ metrics: ['social_impressions', 'social_engagements', 'yt_views', 'yt_watch_minutes', 'yt_impressions'], from: p.range.from, to: p.range.to, compare: p.compare, groupBy: 'account', filters: { language: p.filters.language } })).results;
     const start = Q(['followers'], addDays(p.range.from, -1), addDays(p.range.from, -1), 'none')[0];
     const ds = ctx.dataset;
+    const acct = await registeredAccounts(app.db);
     const accounts = (ds.tables.social?.dicts.account ?? []).map((key) => {
-      const def = SOCIAL_ACCOUNTS.find((a) => a.id === key);
+      const def = acct(key);
       const get = (res: (typeof sums)[number]) => res.rows?.find((x) => x.key === key) ?? null;
       const m = Object.fromEntries([...sums, ...platformRows].map((res) => [res.metric, get(res)]));
-      const isYt = def?.platform === 'youtube';
+      const isYt = def.platform === 'youtube';
       const imp = m.social_impressions?.value ?? 0;
       const eng = m.social_engagements?.value ?? 0;
       return {
         key,
-        name: def?.name ?? key,
-        platform: def?.platform ?? 'unknown',
-        language: def?.language ?? null,
+        name: def.name,
+        platform: def.platform,
+        language: def.language,
+        reported: def.metrics,
         followersStart: start.rows?.find((x) => x.key === key)?.value ?? null,
         followersEnd: m.followers?.value ?? null,
         followersGained: m.followers_gained?.value ?? 0,

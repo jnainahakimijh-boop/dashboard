@@ -9,6 +9,8 @@ Every number in the product is computed by the semantic metric layer (`shared/me
   - month, quarter or year to date;
   - previous month, quarter or year;
   - custom.
+
+  Quarters and years follow the fiscal year set in Administration → Organisation (January by default).
 - Days are complete calendar days in Europe/Paris. "Data up to" is the last complete day available across sources.
 - **Previous period:** the same number of days immediately before the selected period. **Year over year:** the same calendar dates one year earlier.
 - **Coverage:**
@@ -58,7 +60,7 @@ Every number in the product is computed by the semantic metric layer (`shared/me
 
 ## GEO (AI-answer visibility)
 
-- The **monitored sample** is a versioned library of prompts (language, topic, intent, market, priority, expected Veolia pages), measured periodically with each configured provider.
+- The **monitored sample** is a versioned library of prompts (language, topic, intent, market, priority, expected Veolia pages). Each connected provider measures it on demand (*Run measurement*, administrators) or weekly when that schedule is enabled. Google AI features are observed manually and imported.
 - **Per measurement:**
   - *Mentioned* means a brand term appears in the answer text.
   - *Cited* means a veolia.com URL appears among the answer's sources.

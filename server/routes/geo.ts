@@ -11,6 +11,7 @@ import { audit } from '../audit';
 import { HttpError, currentUser, type HonoEnv, type Ctx } from '../context';
 import { competitors, dataConnections, geoPromptVersions, geoPrompts } from '../db/schema';
 import { runQuery } from '../analytics/engine';
+import { geoMeasureBlocker } from '../connectors/geo';
 import { body, notFound, parseList, periodParams, uuidParam } from './util';
 
 const promptSchema = z.object({
@@ -231,9 +232,10 @@ export function geoRoutes() {
     const app = c.get('app');
     const d = await body(c, z.object({ provider: z.enum(['geo_openai', 'geo_perplexity']), promptIds: z.array(z.string().uuid()).max(100).optional() }));
     const [conn] = await app.db.select().from(dataConnections).where(eq(dataConnections.provider, d.provider));
-    if (!conn || conn.status !== 'connected' || !conn.secretCiphertext) {
-      await audit(c, { action: 'geo.measure.start', outcome: 'denied', details: { provider: d.provider, reason: 'provider_not_connected' } });
-      throw new HttpError(409, 'This GEO provider is not connected. Configure its API key and approve external processing in Administration → Integrations first.', 'provider_not_connected');
+    const blocker = conn ? geoMeasureBlocker({ ...conn, hasSecret: !!conn.secretCiphertext }) : 'not_api_mode';
+    if (!conn || blocker) {
+      await audit(c, { action: 'geo.measure.start', outcome: 'denied', details: { provider: d.provider, reason: blocker } });
+      throw new HttpError(409, 'This GEO provider is not ready. In Administration → Integrations, switch it to API mode, store its API key and model, and have a super administrator approve sending the prompts.', 'provider_not_ready', { blocker });
     }
     const prompts = d.promptIds?.length ? await app.db.select().from(geoPrompts).where(inArray(geoPrompts.id, d.promptIds)) : await app.db.select().from(geoPrompts).where(eq(geoPrompts.active, true)).orderBy(asc(geoPrompts.key));
     const job = await app.jobs.enqueue('geo.measure', { connectionId: conn.id, promptKeys: prompts.map((x) => x.key) }, { maxAttempts: 1, createdBy: currentUser(c).id });

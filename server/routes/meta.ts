@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq, sql } from 'drizzle-orm';
 import {
   ADS,
   AD_CAMPAIGNS,
@@ -24,12 +24,13 @@ import { requirePermission } from '../auth/middleware';
 import { currentUser, type HonoEnv } from '../context';
 import { campaigns, competitors, dashboards, dataConnections, metricDefinitions, organizations, socialAccounts, taxonomyTerms, websites } from '../db/schema';
 import { QueryError } from '../analytics/engine';
+import { GEO_API_PROVIDERS, geoMeasureBlocker } from '../connectors/geo';
 import { HttpError } from '../context';
 import { body } from './util';
 
 /** Organisation settings that the web app needs (no retention or internal values). */
 function pickOrgSettings(st: Record<string, unknown>) {
-  const keys = ['appName', 'supportedLanguages', 'dateFormat', 'numberLocale', 'defaultPeriod', 'defaultCompare', 'defaultTheme'] as const;
+  const keys = ['appName', 'supportedLanguages', 'dateFormat', 'numberLocale', 'defaultPeriod', 'defaultCompare', 'defaultTheme', 'fiscalYearStartMonth'] as const;
   return { conversionEvents: (st.conversionEvents as string[] | undefined) ?? [], ...Object.fromEntries(keys.filter((k) => st[k] !== undefined).map((k) => [k, st[k]])) };
 }
 
@@ -65,7 +66,7 @@ export function metaRoutes() {
       db.select({ key: competitors.key, name: competitors.name, domain: competitors.domain, isDemo: competitors.isDemo }).from(competitors),
       db.select().from(metricDefinitions),
       db.select().from(dashboards).where(eq(dashboards.key, 'executive')),
-      db.select({ provider: dataConnections.provider, status: dataConnections.status, name: dataConnections.name, mode: dataConnections.mode, lastSuccessAt: dataConnections.lastSuccessAt }).from(dataConnections),
+      db.select({ provider: dataConnections.provider, status: dataConnections.status, name: dataConnections.name, mode: dataConnections.mode, lastSuccessAt: dataConnections.lastSuccessAt, config: dataConnections.config, hasSecret: sql<boolean>`${dataConnections.secretCiphertext} is not null` }).from(dataConnections),
     ]);
     const scope = user.scopes?.websites;
     return c.json({
@@ -74,9 +75,10 @@ export function metaRoutes() {
       dataStart: Object.values(ds.tables).reduce<string | null>((m, t) => (t?.coverage && (!m || t.coverage.from < m) ? t.coverage.from : m), null),
       sources,
       tableSources: TABLE_SOURCES,
-      connections: conns,
+      // configuration stays server-side; GEO providers only expose whether a measurement can run
+      connections: conns.map(({ config, hasSecret, ...cn }) => ({ ...cn, ...((GEO_API_PROVIDERS as readonly string[]).includes(cn.provider) ? { measurable: !geoMeasureBlocker({ ...cn, config, hasSecret: !!hasSecret }) } : {}) })),
       sites: sites.filter((s) => !scope?.length || scope.includes(s.key)).map((s) => ({ key: s.key, name: s.name, domain: s.domain, basePath: s.basePath, language: s.language, businessUnit: s.businessUnit, status: s.status })),
-      accounts: accounts.map((a) => ({ key: a.key, platform: a.platform, name: a.name, handle: a.handle, language: a.language, status: a.status })),
+      accounts: accounts.map((a) => ({ key: a.key, platform: a.platform, name: a.name, handle: a.handle, language: a.language, status: a.status, metrics: a.metrics })),
       campaigns: cmp.map((x) => ({ key: x.key, utm: x.utm, name: { en: x.nameEn, fr: x.nameFr }, from: x.startDate, to: x.endDate, topic: x.topic, businessUnit: x.businessUnit, objective: x.objective })),
       taxonomy: terms.map((t) => ({ kind: t.kind, key: t.key, label: { en: t.labelEn, fr: t.labelFr } })),
       competitors: comps,
