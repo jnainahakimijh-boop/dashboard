@@ -153,7 +153,7 @@ function PacingPanel() {
                     {t('ads.spend')} {formatValue(p.spendMtd, 'currency', lang)} · {t('ads.expected')} {formatValue(p.expectedMtd, 'currency', lang)} · {t('ads.budget')} {formatValue(p.monthlyBudget, 'currency', lang)}
                   </p>
                   <p className="text-[12.5px] text-t2 tnum">
-                    {t('ads.projected')}{lang === 'fr' ? '\u00a0:' : ':'} {formatValue(p.projectedMonth, 'currency', lang)} · {p.daysElapsed}/{p.daysInMonth}
+                    {t('ads.projected')}{t('common.colon')} {formatValue(p.projectedMonth, 'currency', lang)} · {p.daysElapsed}/{p.daysInMonth}
                   </p>
                 </div>
               );

@@ -10,7 +10,8 @@ import { BUSINESS_UNITS, COMPETITORS, FORMATS, GEO_PROMPTS, PAGES, SITES, TOPICS
 import { analyticsQuerySchema, type AnalyticsQuery, type MetricResult } from '@shared/filters';
 import type { Unit } from '@shared/metrics';
 import type { AppContext } from '../context';
-import { adCampaigns, geoPrompts, recommendationHistory, recommendations, seoIssues } from '../db/schema';
+import { adCampaigns, geoPrompts, recommendationHistory, recommendations, seoCrawls, seoIssues } from '../db/schema';
+import { RULES as SEO_RULES } from '../seo/rules';
 import { runQuery, type EngineContext } from '../analytics/engine';
 import { campaignPacing } from './ads';
 import { fmt, fmtDate, fmtDelta, fmtPct } from './format';
@@ -405,25 +406,27 @@ function ruleDecliningPages(ctx: EngineContext, asOf: string): RecommendationDra
 
 async function ruleSeoIssues(app: AppContext): Promise<RecommendationDraft[]> {
   const rows = await app.db
-    .select({ site: seoIssues.websiteKey, rule: seoIssues.rule, n: sql<number>`count(*)::int` })
+    .select({ site: seoIssues.websiteKey, rule: seoIssues.rule, n: sql<number>`count(*)::int`, demo: sql<boolean>`bool_or(${seoCrawls.source} = 'demo_snapshot')` })
     .from(seoIssues)
+    .leftJoin(seoCrawls, eq(seoCrawls.id, seoIssues.lastCrawlId))
     .where(and(inArray(seoIssues.status, ['open', 'in_progress']), inArray(seoIssues.severity, ['critical', 'high'])))
     .groupBy(seoIssues.websiteKey, seoIssues.rule);
-  const bySite = new Map<string, Array<{ rule: string; n: number }>>();
-  for (const r of rows) bySite.set(r.site, [...(bySite.get(r.site) ?? []), { rule: r.rule, n: Number(r.n) }]);
+  const bySite = new Map<string, Array<{ rule: string; n: number; demo: boolean }>>();
+  for (const r of rows) bySite.set(r.site, [...(bySite.get(r.site) ?? []), { rule: r.rule, n: Number(r.n), demo: Boolean(r.demo) }]);
+  const ruleLabel = (rule: string): L10n => SEO_RULES[rule]?.label ?? { en: rule.replace(/_/g, ' '), fr: rule.replace(/_/g, ' ') };
   return [...bySite.entries()].map(([site, list]) => {
     const total = list.reduce((s, x) => s + x.n, 0);
-    const detail = list.map((x) => `${x.rule.replace(/_/g, ' ')} × ${x.n}`).join(', ');
+    const detail = (lang: 'en' | 'fr') => list.map((x) => `${ruleLabel(x.rule)[lang]} × ${x.n}`).join(', ');
     return {
       ruleKey: 'seo_high_issues',
       fingerprint: `seo_high_issues:${site}`,
       title: { en: `${total} high-severity technical SEO issues open on ${SITE_NAME[site] ?? site}`, fr: `${total} anomalies SEO techniques majeures ouvertes sur ${SITE_NAME[site] ?? site}` },
-      summary: { en: `From the latest audit: ${detail}.`, fr: `D’après le dernier audit : ${detail}.` },
+      summary: { en: `From the latest audit: ${detail('en')}.`, fr: `D’après le dernier audit : ${detail('fr')}.` },
       action: {
         en: 'Assign each issue an owner in SEO Intelligence → Issues, fix broken links and unintended noindex first, then re-run the audit (with crawl authorisation) to confirm.',
         fr: 'Attribuer chaque anomalie dans SEO → Anomalies, corriger d’abord les liens cassés et les noindex non voulus, puis relancer l’audit (avec autorisation de crawl) pour confirmer.',
       },
-      evidence: list.map((x) => ({ label: { en: x.rule.replace(/_/g, ' '), fr: x.rule.replace(/_/g, ' ') }, value: x.n, unit: 'count' as Unit, source: 'crawler' })),
+      evidence: list.map((x) => ({ label: ruleLabel(x.rule), value: x.n, unit: 'count' as Unit, source: x.demo ? 'demo_snapshot' : 'crawler' })),
       kpis: ['organic_clicks'],
       channels: ['organic_search', site],
       priority: 'high',
@@ -431,7 +434,8 @@ async function ruleSeoIssues(app: AppContext): Promise<RecommendationDraft[]> {
       effort: 'low',
       sources: ['Technical SEO audit'],
       confidence: 'high',
-      mode: 'connected',
+      // Issues found by the synthetic demo snapshot must never be presented as a real crawl.
+      mode: list.some((x) => x.demo) ? 'demo' : 'connected',
     };
   });
 }

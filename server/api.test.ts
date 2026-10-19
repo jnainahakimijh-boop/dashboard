@@ -94,6 +94,10 @@ describe('RBAC enforced server-side', () => {
     expect((await as(EDITOR).send('PATCH', `/api/insights/recommendations/${rec.id}`, { status: 'approved' })).status).toBe(403);
     expect((await as(EDITOR).send('POST', `/api/insights/recommendations/${rec.id}/comments`, { body: 'Looks right' })).status).toBe(201);
     expect((await as(EXEC).send('POST', `/api/insights/recommendations/${rec.id}/comments`, { body: 'x' })).status).toBe(403);
+    expect((await as(EDITOR).get('/api/insights/assignees')).status).toBe(403);
+    const assignees = (await (await as(ANALYST).get('/api/insights/assignees')).json()) as Array<Record<string, unknown>>;
+    expect(assignees.length).toBeGreaterThan(0);
+    expect(assignees.every((a) => !('email' in a))).toBe(true);
     const ok = await as(ANALYST).send('PATCH', `/api/insights/recommendations/${rec.id}`, { status: 'under_review' });
     expect(ok.status).toBe(200);
     const detail = (await (await as(ANALYST).get(`/api/insights/recommendations/${rec.id}`)).json()) as { history: Array<{ field: string }>; comments: unknown[] };
@@ -147,6 +151,12 @@ describe('secrets and integrations', () => {
 });
 
 describe('module endpoints', () => {
+  it('labels recommendations built on the demo crawl snapshot as demo, never connected', async () => {
+    const rows = await app.db.select().from(recommendations).where(eq(recommendations.ruleKey, 'seo_high_issues'));
+    expect(rows.length).toBeGreaterThan(0);
+    for (const r of rows) for (const e of r.evidence) expect(e.mode).toBe('demo');
+  });
+
   const endpoints = [
     '/api/meta',
     '/api/web/pages',

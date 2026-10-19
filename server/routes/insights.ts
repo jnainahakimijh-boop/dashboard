@@ -43,6 +43,12 @@ export function insightsRoutes() {
   r.get('/targets', async (c) => c.json(await c.get('app').db.select().from(metricTargets).orderBy(desc(metricTargets.periodStart))));
 
   /* ---------- recommendations ---------- */
+  /** Active users that can own a recommendation. Name and role only — no e-mail addresses. */
+  r.get('/assignees', requirePermission('recommendations.manage'), async (c) => {
+    const rows = await c.get('app').db.select({ id: users.id, name: users.name, role: users.role }).from(users).where(eq(users.status, 'active')).orderBy(asc(users.name));
+    return c.json(rows);
+  });
+
   r.get('/recommendations', async (c) => {
     const app = c.get('app');
     const qp = c.req.query();
