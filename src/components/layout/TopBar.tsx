@@ -10,6 +10,7 @@ import type { Notification } from '@/api/types';
 import { useI18n } from '@/i18n';
 import { formatDate, relativeTime } from '@/lib/format';
 import { NAV } from '@/lib/nav';
+import { internalPath } from '@/lib/safePath';
 import { usePrefs } from '@/state/prefs';
 import { useSession } from '@/state/session';
 import { DataModeBadge } from '@/components/data';
@@ -21,6 +22,8 @@ function DataStatus() {
   const { can } = useSession();
   const sources = meta.data?.sources ?? {};
   const anyDemo = Object.values(sources).some((s) => s.mode === 'demo');
+  // no "data up to" date while no source has any data
+  const anyData = Object.values(sources).some((s) => s.mode !== 'unavailable');
   return (
     <Popover
       align="right"
@@ -29,7 +32,7 @@ function DataStatus() {
       trigger={({ toggle, open, id }) => (
         <button type="button" onClick={toggle} aria-expanded={open} aria-controls={id} className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-ctl)] px-2.5 text-[13px] text-t2 hover:bg-hov hover:text-t1">
           <Database className="size-4" aria-hidden />
-          <span className="hidden md:inline">{meta.data ? t('common.asOf', { date: formatDate(meta.data.asOf, lang) }) : t('shell.dataStatus')}</span>
+          <span className="hidden md:inline">{!meta.data ? t('shell.dataStatus') : anyData ? t('common.asOf', { date: formatDate(meta.data.asOf, lang) }) : t('shell.noDataYet')}</span>
           {anyDemo && <span className="size-2 rounded-full bg-warn" aria-hidden />}
         </button>
       )}
@@ -117,7 +120,7 @@ function Notifications() {
                     close();
                     await api.send('POST', '/api/notifications/read', { ids: [n.id] });
                     void qc.invalidateQueries({ queryKey: ['/api/notifications'] });
-                    if (n.link) nav(n.link);
+                    if (n.link) nav(internalPath(n.link));
                   }}
                 >
                   <p className="line-clamp-2 text-[13px] text-t1">{n.title}</p>
@@ -149,7 +152,7 @@ function Favorites() {
         <ul>
           {q.data!.map((f) => (
             <li key={f.id}>
-              <Link to={f.ref} onClick={close} className="block truncate rounded-md px-2 py-1.5 text-[13px] hover:bg-hov">
+              <Link to={internalPath(f.ref)} onClick={close} className="block truncate rounded-md px-2 py-1.5 text-[13px] hover:bg-hov">
                 {f.label}
               </Link>
             </li>
@@ -194,7 +197,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   const items = [...pages, ...(debounced.length >= 2 ? res.data?.results ?? [] : [])];
   const go = (r: SearchResult) => {
     onClose();
-    nav(r.link);
+    nav(internalPath(r.link));
   };
   return (
     <Modal open={open} onClose={onClose} title={t('common.search')} size="md">

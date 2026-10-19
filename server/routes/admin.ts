@@ -401,8 +401,10 @@ export function adminRoutes() {
   r.patch('/advertising/campaigns/:id', requirePermission('integrations.manage'), async (c) => {
     const app = c.get('app');
     const id = uuidParam(c);
-    const d = await body(c, z.object({ monthlyBudget: z.number().min(0).max(10_000_000).nullable().optional(), externalId: z.string().max(120).nullable().optional(), utmCampaign: z.string().max(120).optional(), businessUnit: z.string().max(60).optional(), category: z.enum(['industries', 'collectivities']).optional(), objective: z.enum(['awareness', 'consideration', 'conversion']).optional() }));
+    const d = await body(c, z.object({ monthlyBudget: z.number().min(0).max(10_000_000).nullable().optional(), externalId: z.string().max(120).nullable().optional(), utmCampaign: z.string().max(120).optional(), businessUnit: z.string().max(60).optional(), category: z.enum(['industries', 'collectivities']).optional(), objective: z.enum(['awareness', 'consideration', 'lead_generation', 'conversion']).optional() }));
     await app.db.update(s.adCampaigns).set({ ...d, updatedAt: new Date() }).where(eq(s.adCampaigns.id, id));
+    // category, business unit and UTM feed the ads breakdowns
+    app.analytics.invalidate();
     await audit(c, { action: 'advertising.campaign.update', entityType: 'ad_campaign', entityId: id, details: d });
     return c.json({ ok: true });
   });
@@ -411,6 +413,7 @@ export function adminRoutes() {
     const id = uuidParam(c);
     const d = await body(c, z.object({ externalId: z.string().max(120).nullable().optional(), siteKey: z.string().max(60).optional() }));
     await app.db.update(s.ads).set({ ...d, updatedAt: new Date() }).where(eq(s.ads.id, id));
+    app.analytics.invalidate();
     await audit(c, { action: 'advertising.ad.update', entityType: 'ad', entityId: id, details: d });
     return c.json({ ok: true });
   });

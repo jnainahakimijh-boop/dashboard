@@ -42,12 +42,12 @@
     "hono": "^4.13.13",
     "lucide-react": "^0.474.0",
     "node-html-parser": "^7.0.1",
-    "nodemailer": "^7.0.10",
+    "nodemailer": "^10.1.7",
     "pdfkit": "^0.17.2",
     "pg": "^8.23.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0",
+    "react-router-dom": "^7.18.4",
     "react-simple-maps": "^3.0.0",
     "recharts": "^2.15.0",
     "robots-parser": "^3.0.1",
@@ -60,7 +60,7 @@
     "@playwright/test": "^1.56.1",
     "@tailwindcss/vite": "^4.0.0",
     "@types/node": "^22.10.0",
-    "@types/nodemailer": "^6.4.17",
+    "@types/nodemailer": "^8.0.2",
     "@types/pdfkit": "^0.17.3",
     "@types/pg": "^8.11.10",
     "@types/react": "^18.3.12",
@@ -75,5 +75,8 @@
     "typescript": "^5.7.2",
     "vite": "^6.0.7",
     "vitest": "^2.1.8"
+  },
+  "overrides": {
+    "d3-color": "^3.1.0"
   }
 }

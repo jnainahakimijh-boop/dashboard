@@ -9,6 +9,7 @@ import { useI18n } from '@/i18n';
 import { configureFormatting } from '@/lib/format';
 import { explicitPrefs, usePrefs, type Density, type Theme } from '@/state/prefs';
 import { useSession } from '@/state/session';
+import { ErrorBoundary } from './ErrorBoundary';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 
@@ -62,6 +63,7 @@ function ProfilePrefsSync() {
 
 export function AppShell() {
   const { t } = useI18n();
+  const { pathname } = useLocation();
   const [mobile, setMobile] = useState(false);
   return (
     <div className="flex min-h-screen bg-app">
@@ -75,7 +77,10 @@ export function AppShell() {
         <TopBar onMenu={() => setMobile(true)} />
         <DemoBanner />
         <main id="main" tabIndex={-1} className="min-w-0 flex-1 outline-none">
-          <Outlet />
+          {/* keyed by path: navigating away clears an error shown on the previous page */}
+          <ErrorBoundary key={pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

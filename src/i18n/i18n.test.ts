@@ -44,6 +44,7 @@ describe('i18n', () => {
       ['admin.unit_', ['count', 'percent', 'currency', 'seconds', 'minutes', 'position', 'decimal']],
       ['admin.agg_', ['sum', 'users', 'last', 'ratio', 'diff', 'custom']],
       ['admin.module_', ['web', 'forms', 'search', 'social', 'ads', 'geo']],
+      ['admin.objective_', ['awareness', 'consideration', 'lead_generation', 'conversion']],
       ['admin.geoBlocker_', ['not_api_mode', 'paused', 'no_api_key', 'no_model', 'not_approved']],
       ['admin.job_', ['alerts_evaluate', 'recommendations_generate', 'connectors_sync_all', 'maintenance_cleanup', 'geo_measure_all', 'seo_crawl_all']],
       ['insights.status_', ['new', 'under_review', 'approved', 'in_progress', 'completed', 'dismissed']],

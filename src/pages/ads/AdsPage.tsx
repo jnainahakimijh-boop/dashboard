@@ -15,7 +15,7 @@ import { FilterToolbar } from '@/components/layout/FilterToolbar';
 import { PageBody, PageHeader } from '@/components/layout/AppShell';
 import { BreakdownTable, Grid2, KpiRow, TrendCard } from '@/components/modules';
 import { DataTable } from '@/components/tables/DataTable';
-import { Badge, Card, CardBody, CardHeader, Skeleton, TabPanel, Tabs } from '@/components/ui';
+import { Badge, Card, CardBody, CardHeader, EmptyState, ErrorState, Skeleton, TabPanel, Tabs } from '@/components/ui';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 const TABS = ['overview', 'campaigns', 'pacing', 'conversions', 'landing', 'integration'] as const;
@@ -193,8 +193,8 @@ function PacingPanel() {
 
 interface Conversions {
   mode: string;
-  platform: { value: number | null; compare: number | null; series: ApiPoint[]; attribution: L10n };
-  ga4: { value: number | null; compare: number | null; series: ApiPoint[]; sessions: number | null; attribution: L10n };
+  platform: { value: number | null; compare: number | null; series: ApiPoint[] | null; attribution: L10n };
+  ga4: { value: number | null; compare: number | null; series: ApiPoint[] | null; sessions: number | null; attribution: L10n };
   clicks: number | null;
   clickToSessionRate: number | null;
   explanation: L10n;
@@ -205,9 +205,10 @@ function ConversionsPanel() {
   const gf = useGlobalFilters();
   const q = useApi<Conversions>('/api/ads/conversions', gf.params);
   const d = q.data;
+  if (q.isError) return <ErrorState error={q.error} onRetry={() => q.refetch()} />;
   if (!d) return <Skeleton className="h-64" />;
   const toS = (id: string, label: string, slot: number, pts: ApiPoint[]) => ({ id, label, slot, unit: 'count' as const, points: pts.map((p) => ({ key: p.key, label: formatBucket(p.key, 'week', lang), value: p.value, compare: p.compare })) });
-  const block = (title: string, metric: string, x: { value: number | null; compare: number | null; series: ApiPoint[]; attribution: L10n }, slot: number) => (
+  const block = (title: string, metric: string, x: { value: number | null; compare: number | null; series: ApiPoint[] | null; attribution: L10n }, slot: number) => (
     <Card>
       <CardHeader title={title} subtitle={L(x.attribution)} badges={<DataModeBadge mode={d.mode} />} />
       <CardBody>
@@ -216,7 +217,11 @@ function ConversionsPanel() {
           <ChangeLabel metric={metric} result={{ delta: x.value !== null && x.compare !== null ? x.value - x.compare : null, deltaPct: x.value !== null && x.compare ? (x.value - x.compare) / x.compare : null, compare: x.compare }} />
         </p>
         <div className="mt-3">
-          <TimeSeriesChart series={[toS(metric, title, slot, x.series)]} height={180} showCompare={gf.compare !== 'none'} compareLabel={t('common.vsPrevious')} ariaLabel={title} />
+          {x.series?.length ? (
+            <TimeSeriesChart series={[toS(metric, title, slot, x.series)]} height={180} showCompare={gf.compare !== 'none'} compareLabel={t('common.vsPrevious')} ariaLabel={title} />
+          ) : (
+            <EmptyState title={t('common.unavailable')} />
+          )}
         </div>
       </CardBody>
     </Card>

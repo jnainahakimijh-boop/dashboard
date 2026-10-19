@@ -16,6 +16,10 @@ const viewState = z.record(z.unknown()).refine((v) => JSON.stringify(v).length <
 /** Module page where each kind of metric is analysed (search results link there). */
 const METRIC_PAGE: Record<string, string> = { web: '/web', forms: '/web?tab=conversions', search: '/seo', social: '/social', ads: '/ads', geo: '/geo' };
 
+// links rendered from stored values must stay inside the application (no `//host`, backslashes or schemes)
+const INTERNAL_ROUTE = /^\/(?:[a-z0-9_-]+(?:\/[a-z0-9_-]+)*)?$/i;
+const INTERNAL_PATH = /^\/(?![/\\])[^\s\\]*$/;
+
 export function personalRoutes() {
   const r = new Hono<HonoEnv>();
   r.use('*', requirePermission('analytics.view'));
@@ -30,7 +34,7 @@ export function personalRoutes() {
   r.post('/views', async (c) => {
     const app = c.get('app');
     const user = currentUser(c);
-    const d = await body(c, z.object({ name: z.string().trim().min(1).max(120), route: z.string().regex(/^\/[a-z0-9/_-]*$/i).max(100), state: viewState, shared: z.boolean().default(false) }));
+    const d = await body(c, z.object({ name: z.string().trim().min(1).max(120), route: z.string().regex(INTERNAL_ROUTE, 'Use an application path such as /seo').max(100), state: viewState, shared: z.boolean().default(false) }));
     if (d.shared && !can(user.role, 'views.share')) throw new HttpError(403, 'You cannot share views', 'forbidden');
     const [row] = await app.db.insert(savedViews).values({ orgId: app.orgId, userId: user.id, ...d }).returning();
     await audit(c, { action: 'view.create', entityType: 'saved_view', entityId: row.id, details: { name: d.name, shared: d.shared } });
@@ -52,7 +56,7 @@ export function personalRoutes() {
   r.get('/favorites', async (c) => c.json(await c.get('app').db.select().from(favorites).where(eq(favorites.userId, currentUser(c).id)).orderBy(desc(favorites.createdAt))));
 
   r.post('/favorites', async (c) => {
-    const d = await body(c, z.object({ kind: z.enum(['page', 'view', 'metric', 'report', 'content', 'keyword', 'prompt']), ref: z.string().min(1).max(300), label: z.string().min(1).max(200) }));
+    const d = await body(c, z.object({ kind: z.enum(['page', 'view', 'metric', 'report', 'content', 'keyword', 'prompt']), ref: z.string().min(1).max(300).regex(INTERNAL_PATH, 'Use an application path such as /seo?tab=keywords'), label: z.string().min(1).max(200) }));
     const user = currentUser(c);
     const db = c.get('app').db;
     const [existing] = await db.select().from(favorites).where(and(eq(favorites.userId, user.id), eq(favorites.kind, d.kind), eq(favorites.ref, d.ref)));

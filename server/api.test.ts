@@ -268,6 +268,15 @@ describe('module endpoints', () => {
     expect(types.has('content')).toBe(true);
   });
 
+  it('keeps stored links inside the application', async () => {
+    for (const route of ['//evil.example', '/\\evil.example', 'https://evil.example', '/seo/']) {
+      expect((await as(ANALYST).send('POST', '/api/me/views', { name: 'x', route, state: { preset: 'last7' }, shared: true })).status).toBe(422);
+    }
+    for (const ref of ['//evil.example', '/\\evil.example', 'javascript:alert(1)']) {
+      expect((await as(EDITOR).send('POST', '/api/me/favorites', { kind: 'page', ref, label: 'x' })).status).toBe(422);
+    }
+  });
+
   it('saved views and favorites round-trip', async () => {
     const v = await as(EDITOR).send('POST', '/api/me/views', { name: 'My view', route: '/web', state: { preset: 'last7' } });
     expect(v.status).toBe(201);

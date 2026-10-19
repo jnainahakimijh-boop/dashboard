@@ -756,7 +756,7 @@ function CampaignModal({ c, onClose }: { c: AdvertisingData['campaigns'][number]
         </Field>
         <Field label={t('admin.objective')} htmlFor="c-obj">
           <Select id="c-obj" value={f.objective} onChange={(e) => setF({ ...f, objective: e.target.value })}>
-            {['awareness', 'consideration', 'conversion'].map((o) => (
+            {['awareness', 'consideration', 'lead_generation', 'conversion'].map((o) => (
               <option key={o} value={o}>
                 {t(`admin.objective_${o}`)}
               </option>

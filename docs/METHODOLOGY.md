@@ -154,7 +154,7 @@ An optional AI narrative can rephrase these computed facts. It is used only when
 
 ## Demo data
 
-The demo dataset is deterministic: a seeded generator produces the same values on every run. It covers 1 July 2024 to yesterday for every source, and it reconciles across sources:
+The demo dataset is deterministic: a seeded generator produces the same values on every run. It covers 1 July 2024 to 18 October 2026 for every source. The end date is fixed (`DEMO_END` in `shared/demo/generate.ts`) so that figures, tests and screenshots stay reproducible, so "Data up to" shows 18 October 2026 while demo data is in use. It reconciles across sources:
 
 - Social account totals equal the sum of their posts.
 - GA4 paid sessions are at most the ad clicks.

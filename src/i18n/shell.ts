@@ -92,6 +92,7 @@ export const filters: Messages = {
 export const shell: Messages = {
   en: {
     dataStatus: 'Data status',
+    noDataYet: 'No data yet',
     dataStatusHint: 'Origin and freshness of each source. DEMO sources serve synthetic data; nothing is presented as connected unless a sync or import succeeded.',
     source: 'Source',
     mode: 'Mode',
@@ -125,6 +126,7 @@ export const shell: Messages = {
   },
   fr: {
     dataStatus: 'État des données',
+    noDataYet: 'Aucune donnée pour l’instant',
     dataStatusHint: 'Origine et fraîcheur de chaque source. Les sources DÉMO servent des données synthétiques ; rien n’est présenté comme connecté sans synchronisation ou import réussi.',
     source: 'Source',
     mode: 'Mode',

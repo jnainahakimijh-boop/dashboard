@@ -55,7 +55,7 @@ Every variable is documented in `.env.example`. The server validates them at sta
 - Migrations: `server/db/migrations/*.sql`. They are applied automatically at start-up, or explicitly with `npm run db:migrate`.
 - To change the schema, edit `schema.ts`, run `npm run db:generate -- --name <change>`, review the SQL and commit it.
 - `npm run db:seed` seeds an empty database. `npm run db:reset -- --yes` deletes everything and re-seeds; it is refused in production.
-- To run the API test suite against a real PostgreSQL server instead of the embedded one, set `TEST_DATABASE_URL` to an empty, disposable database: `TEST_DATABASE_URL=postgres://… npx vitest run server/api.test.ts`. The suite writes to that database, so drop and re-create it before each run. The 63 API tests pass on PostgreSQL 16.
+- To run the API test suite against a real PostgreSQL server instead of the embedded one, set `TEST_DATABASE_URL` to an empty, disposable database: `TEST_DATABASE_URL=postgres://… npx vitest run server/api.test.ts`. The suite writes to that database, so drop and re-create it before each run. The 68 API tests pass on PostgreSQL 16 (19 October 2026).
 
 ## Production deployment
 

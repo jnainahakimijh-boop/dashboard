@@ -6,6 +6,7 @@ import { api } from '@/api/client';
 import { useApi, useApiMutation, useMeta } from '@/api/hooks';
 import { useI18n } from '@/i18n';
 import { relativeTime } from '@/lib/format';
+import { internalPath } from '@/lib/safePath';
 import { usePrefs, type Density, type Theme } from '@/state/prefs';
 import { useSession } from '@/state/session';
 import { PageBody, PageHeader } from '@/components/layout/AppShell';
@@ -31,7 +32,7 @@ function viewUrl(v: SavedView): string {
   }
   if (v.state.compare) q.set('cmp', v.state.compare);
   for (const [k, vals] of Object.entries(v.state.filters ?? {})) if (vals.length) q.set(k, vals.join(','));
-  return `${v.route}?${q.toString()}`;
+  return internalPath(`${v.route}?${q.toString()}`);
 }
 
 interface Favorite {
@@ -225,7 +226,7 @@ export default function SettingsPage() {
                 <ul className="mt-1 flex flex-col divide-y divide-brd text-[13.5px]">
                   {favs.data.map((f) => (
                     <li key={f.id} className="flex items-center justify-between gap-2 py-1.5">
-                      <Link to={f.ref.startsWith('/') ? f.ref : '/'} className="min-w-0 truncate text-acctext hover:underline">
+                      <Link to={internalPath(f.ref)} className="min-w-0 truncate text-acctext hover:underline">
                         {f.label}
                       </Link>
                       <Button size="sm" variant="ghost" icon={<Trash2 className="size-3.5" />} aria-label={`${t('common.unfavorite')}: ${f.label}`} onClick={() => delFav.mutate({ id: f.id })} />

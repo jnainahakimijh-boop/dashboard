@@ -20,7 +20,7 @@ Credentials are entered in Administration → Integration manager → *Connect* 
 | GEO — Google AI features | Manual observations (file import) | Yes (file import) | File · demo | None | No official API exists |
 | CSV / XLSX importer | Implemented for 11 datasets | Yes (tests and e2e) | File | None | — |
 | AI wording provider (Anthropic, OpenAI, Azure OpenAI) | Implemented, disabled by default | No | API | API key | Organisational approval recorded with a typed confirmation |
-| SMTP e-mail | Implemented (nodemailer) | No | Environment | `SMTP_*` variables | Corporate relay |
+| SMTP e-mail | Implemented (nodemailer 10); delivery tested against a local SMTP server | No (no corporate relay) | Environment | `SMTP_*` variables | Corporate relay |
 | SSO (OpenID Connect) | **Partial: configuration and discovery test only** | No | — | Issuer, client id, secret | Identity team app registration. **Production blocker** |
 
 The documentation URLs used by each connector are shown in the Integration manager (*Readiness & history*) and in `server/connectors/*.ts`.

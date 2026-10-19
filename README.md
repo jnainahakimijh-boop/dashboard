@@ -2,7 +2,7 @@
 
 Internal platform for Veolia's digital performance: veolia.com (FR and EN), LinkedIn, X, YouTube, organic search, visibility in AI answers (GEO), content, ChatGPT Ads, and website conversions. It is built on one semantic metric layer and comes with a full administration back office.
 
-> **Current state: demonstration data only.** No Veolia account is connected. Every figure comes from a deterministic synthetic dataset covering July 2024 to the present, and the product labels it **DEMO** in every view, export and report. Connecting real sources requires the credentials and authorisations listed in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md). Production blockers are listed in [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
+> **Current state: demonstration data only.** No Veolia account is connected. Every figure comes from a deterministic synthetic dataset covering 1 July 2024 to 18 October 2026, and the product labels it **DEMO** in every view, export and report. Connecting real sources requires the credentials and authorisations listed in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md). Production blockers are listed in [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
 
 ## Modules
 
@@ -38,7 +38,7 @@ Sign in with one of the demo role buttons on the login page (Admin, Analyst, Edi
 | `npm run dev` | API (watch mode) and Vite dev server |
 | `npm run build` | Typecheck, build the web app to `dist/`, bundle the server to `dist-server/` |
 | `npm start` | Run the built server (serves the API and the web app on `PORT`) |
-| `npm test` | Unit and API tests (Vitest): engine, crawler, connectors, RBAC, imports, reports, i18n |
+| `npm test` | Unit and API tests (Vitest): engine, crawler, connectors, RBAC, imports, reports, scheduled jobs, e-mail delivery, i18n. Set `TEST_DATABASE_URL` to run the API tests on PostgreSQL |
 | `npm run test:e2e` | Build, then Playwright end-to-end and WCAG 2.2 AA (axe) tests on a throw-away database |
 | `npm run db:migrate` | Apply SQL migrations |
 | `npm run db:seed` | Create the organisation, users and reference data if the database is empty |
